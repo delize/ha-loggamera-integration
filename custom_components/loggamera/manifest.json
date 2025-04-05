@@ -1,0 +1,15 @@
+{
+  "domain": "loggamera",
+  "name": "Loggamera Integration",
+  "version": "1.0.0",
+  "documentation": "https://documenter.getpostman.com/view/6665372/SzYexbZa",
+  "requirements": [
+    "requests"
+  ],
+  "dependencies": [],
+  "codeowners": [
+    "@delize"
+  ],
+  "iot_class": "cloud_polling",
+  "integration_type": "component"
+}
