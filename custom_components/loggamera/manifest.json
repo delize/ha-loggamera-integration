@@ -2,13 +2,13 @@
   "domain": "loggamera",
   "name": "Loggamera Integration",
   "version": "1.0.0",
-  "documentation": "https://documenter.getpostman.com/view/6665372/SzYexbZa",
+  "documentation": "https://github.com/yourusername/loggamera",
   "requirements": [
     "requests"
   ],
   "dependencies": [],
   "codeowners": [
-    "@delize"
+    "@yourusername"
   ],
   "iot_class": "cloud_polling",
   "integration_type": "component"
