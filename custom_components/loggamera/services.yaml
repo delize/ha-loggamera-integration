@@ -2,13 +2,33 @@
 
 execute_scenario:
   name: Execute Scenario
-  description: Execute a predefined scenario in Loggamera
+  description: Execute a Loggamera scenario
   fields:
     scenario_id:
       name: Scenario ID
       description: ID of the scenario to execute
       required: true
-      example: "12345"
+      example: 12345
+      selector:
+        number:
+          min: 1
+          step: 1
+          mode: box
+    duration_minutes:
+      name: Duration (minutes)
+      description: Duration in minutes for the scenario (if applicable)
+      required: false
+      example: 60
+      selector:
+        number:
+          min: 1
+          step: 1
+          mode: box
+    entry_id:
+      name: Integration Entry ID
+      description: Entry ID of the Loggamera integration (only needed if you have multiple instances)
+      required: false
+      example: "abcd1234"
       selector:
         text:
 

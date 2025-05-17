@@ -1,8 +1,6 @@
-"""Sensor platform for Loggamera integration."""
-from __future__ import annotations
-
+"""Support for Loggamera sensors."""
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Dict, List, Optional
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,167 +9,211 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    UnitOfPower,
     UnitOfEnergy,
-    UnitOfVolume,
+    UnitOfPower,
     UnitOfTemperature,
+    UnitOfVolume,
     PERCENTAGE,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
-    DataUpdateCoordinator,
 )
 
-from .const import DOMAIN, CATEGORY_POWER, CATEGORY_WATER, CATEGORY_ROOM, CATEGORY_CLIMATE
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up Loggamera sensor based on a config entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    """Set up Loggamera sensors based on a config entry."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    
+    # Wait for coordinator to do its first update
+    await coordinator.async_config_entry_first_refresh()
     
     entities = []
-
-    # Add sensors based on available devices and their capabilities
-    if coordinator.data:
-        devices = coordinator.data.get("devices", [])
+    
+    for device_id, device in coordinator.devices.items():
+        device_class = device.get("Class")
+        device_title = device.get("Title", f"Device {device_id}")
         
-        for device in devices:
-            device_id = device.get("deviceId")
-            device_name = device.get("name", f"Device {device_id}")
+        if device_id in coordinator.device_data:
+            device_data = coordinator.device_data[device_id]
             
-            if not device_id:
-                continue
+            if device_data.get("Data") and device_data["Data"].get("Values"):
+                values = device_data["Data"]["Values"]
                 
-            capabilities_key = f"capabilities_{device_id}"
-            capabilities = coordinator.data.get(capabilities_key, {})
-            
-            # Add power sensors if available
-            power_key = f"power_{device_id}"
-            if power_key in coordinator.data:
-                # You would need to adapt these based on the actual data structure from the API
-                entities.append(LoggameraPowerSensor(coordinator, device_id, device_name, "power", "Current Power", UnitOfPower.WATT, SensorDeviceClass.POWER))
-                entities.append(LoggameraPowerSensor(coordinator, device_id, device_name, "energy", "Energy Consumption", UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY))
-            
-            # Add water sensors if available
-            water_key = f"water_{device_id}"
-            if water_key in coordinator.data:
-                entities.append(LoggameraWaterSensor(coordinator, device_id, device_name, "water", "Water Consumption", UnitOfVolume.LITERS, SensorDeviceClass.WATER))
-            
-            # Add room sensors if available
-            room_key = f"room_{device_id}"
-            if room_key in coordinator.data:
-                entities.append(LoggameraRoomSensor(coordinator, device_id, device_name, "temperature", "Temperature", UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE))
-                entities.append(LoggameraRoomSensor(coordinator, device_id, device_name, "humidity", "Humidity", PERCENTAGE, SensorDeviceClass.HUMIDITY))
+                # Create entities for each value
+                for value in values:
+                    # Skip alarm values for sensors (they'll be used for binary sensors)
+                    if value["Name"] in ["alarmActive", "alarmInClearText"]:
+                        continue
+                        
+                    entities.append(
+                        LoggameraSensor(
+                            coordinator,
+                            device_id,
+                            device_class,
+                            device_title,
+                            value["Name"],
+                            value["ClearTextName"],
+                            value["ValueType"],
+                            value["UnitType"],
+                            value["UnitPresentation"],
+                        )
+                    )
     
     async_add_entities(entities)
 
-
-class LoggameraBaseSensor(CoordinatorEntity, SensorEntity):
-    """Base class for Loggamera sensors."""
+class LoggameraSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a Loggamera sensor."""
 
     def __init__(
         self,
-        coordinator: DataUpdateCoordinator,
-        device_id: str,
-        device_name: str,
-        sensor_type: str,
-        name: str,
-        unit: str,
-        device_class: str,
-        state_class: str = SensorStateClass.MEASUREMENT,
-    ) -> None:
+        coordinator,
+        device_id,
+        device_class,
+        device_title,
+        value_name,
+        value_clear_name,
+        value_type,
+        unit_type,
+        unit_presentation,
+    ):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._device_id = device_id
-        self._device_name = device_name
-        self._sensor_type = sensor_type
-        self._attr_name = f"{device_name} {name}"
-        self._attr_unique_id = f"{device_id}_{sensor_type}"
-        self._attr_device_class = device_class
-        self._attr_native_unit_of_measurement = unit
-        self._attr_state_class = state_class
-        self._attr_should_poll = False
+        self._device_class = device_class
+        self._device_title = device_title
+        self._value_name = value_name
+        self._value_clear_name = value_clear_name
+        self._value_type = value_type
+        self._unit_type = unit_type
+        self._unit_presentation = unit_presentation
         
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_id)},
-            name=device_name,
-            manufacturer="Loggamera",
-        )
-    
-    @property
-    def native_value(self) -> Any:
-        """Return the state of the sensor."""
-        # This method should be implemented by subclasses
-        return None
-
-
-class LoggameraPowerSensor(LoggameraBaseSensor):
-    """Representation of a Loggamera power sensor."""
-    
-    @property
-    def native_value(self) -> Any:
-        """Return the state of the sensor."""
-        if not self.coordinator.data:
-            return None
-            
-        power_data = self.coordinator.data.get(f"power_{self._device_id}")
-        if not power_data:
-            return None
-            
-        # Extract the value based on the sensor type and the API response structure
-        # This is a placeholder and should be adapted to match the actual API response
-        if self._sensor_type == "power":
-            return power_data.get("currentPower")
-        elif self._sensor_type == "energy":
-            return power_data.get("totalEnergy")
+        # Set entity properties
+        self._attr_name = f"{device_title} {value_clear_name}"
+        self._attr_unique_id = f"loggamera_{device_id}_{value_name}"
         
-        return None
-
-
-class LoggameraWaterSensor(LoggameraBaseSensor):
-    """Representation of a Loggamera water sensor."""
-    
-    @property
-    def native_value(self) -> Any:
-        """Return the state of the sensor."""
-        if not self.coordinator.data:
-            return None
-            
-        water_data = self.coordinator.data.get(f"water_{self._device_id}")
-        if not water_data:
-            return None
-            
-        # Extract the value based on the API response structure
-        # This is a placeholder and should be adapted to match the actual API response
-        return water_data.get("totalConsumption")
-
-
-class LoggameraRoomSensor(LoggameraBaseSensor):
-    """Representation of a Loggamera room sensor."""
-    
-    @property
-    def native_value(self) -> Any:
-        """Return the state of the sensor."""
-        if not self.coordinator.data:
-            return None
-            
-        room_data = self.coordinator.data.get(f"room_{self._device_id}")
-        if not room_data:
-            return None
-            
-        # Extract the value based on the sensor type and the API response structure
-        # This is a placeholder and should be adapted to match the actual API response
-        if self._sensor_type == "temperature":
-            return room_data.get("temperature")
-        elif self._sensor_type == "humidity":
-            return room_data.get("humidity")
+        # Set appropriate icon
+        self._set_icon()
         
+        # Set device class and state class
+        self._set_device_class()
+        self._set_state_class()
+        
+        # Set unit of measurement
+        self._set_unit_of_measurement()
+
+    def _set_icon(self):
+        """Set the icon based on the value type."""
+        if self._value_name == "Temperature":
+            self._attr_icon = "mdi:thermometer"
+        elif "Temperature" in self._value_name:
+            self._attr_icon = "mdi:thermometer"
+        elif self._value_name == "Humidity":
+            self._attr_icon = "mdi:water-percent"
+        elif "Consumed" in self._value_name and "kWh" in self._value_name:
+            self._attr_icon = "mdi:flash"
+        elif "Power" in self._value_name:
+            self._attr_icon = "mdi:lightning-bolt"
+        elif "Water" in self._value_name or "M3" in self._value_name:
+            self._attr_icon = "mdi:water"
+        else:
+            self._attr_icon = "mdi:gauge"
+
+    def _set_device_class(self):
+        """Set the sensor device class based on the value type."""
+        if self._unit_type == "DegreesCelsius":
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        elif self._unit_type == "KwH":
+            self._attr_device_class = SensorDeviceClass.ENERGY
+        elif self._unit_type == "KW":
+            self._attr_device_class = SensorDeviceClass.POWER
+        elif self._unit_type == "CubicMeters":
+            self._attr_device_class = SensorDeviceClass.WATER
+        else:
+            self._attr_device_class = None
+
+    def _set_state_class(self):
+        """Set the state class based on the value type."""
+        if "Total" in self._value_name:
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif self._device_class in [
+            SensorDeviceClass.TEMPERATURE,
+            SensorDeviceClass.POWER,
+        ]:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        else:
+            self._attr_state_class = None
+
+    def _set_unit_of_measurement(self):
+        """Set the unit of measurement based on the unit type."""
+        if self._unit_type == "DegreesCelsius":
+            self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+        elif self._unit_type == "KwH":
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+        elif self._unit_type == "KW":
+            self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+        elif self._unit_type == "CubicMeters":
+            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
+        else:
+            self._attr_native_unit_of_measurement = self._unit_presentation
+
+    @property
+    def device_info(self):
+        """Return device info."""
+        return {
+            "identifiers": {(DOMAIN, str(self._device_id))},
+            "name": self._device_title,
+            "manufacturer": "Loggamera",
+            "model": self._device_class,
+        }
+
+    @property
+    def available(self):
+        """Return if entity is available."""
+        if (
+            not self.coordinator.data
+            or "device_data" not in self.coordinator.data
+            or self._device_id not in self.coordinator.data["device_data"]
+        ):
+            return False
+            
+        return True
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        if not self.available:
+            return None
+            
+        device_data = self.coordinator.data["device_data"][self._device_id]
+        
+        if (
+            device_data
+            and device_data.get("Data")
+            and device_data["Data"].get("Values")
+        ):
+            values = device_data["Data"]["Values"]
+            for value in values:
+                if value["Name"] == self._value_name:
+                    # Convert value based on type
+                    if self._value_type == "DECIMAL" or self._device_class in [
+                        SensorDeviceClass.TEMPERATURE,
+                        SensorDeviceClass.ENERGY,
+                        SensorDeviceClass.POWER,
+                        SensorDeviceClass.WATER,
+                    ]:
+                        try:
+                            return float(value["Value"])
+                        except (ValueError, TypeError):
+                            return None
+                    else:
+                        return value["Value"]
+                        
         return None
