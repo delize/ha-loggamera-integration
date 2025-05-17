@@ -17,5 +17,42 @@
   },
   "success": {
     "configuration_updated": "Configuration updated successfully."
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Loggamera",
+        "description": "Set up your Loggamera integration",
+        "data": {
+          "api_key": "API Key"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power": {
+        "name": "Power"
+      },
+      "energy": {
+        "name": "Energy"
+      },
+      "water": {
+        "name": "Water Consumption"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "humidity": {
+        "name": "Humidity"
+      }
+    }
   }
 }

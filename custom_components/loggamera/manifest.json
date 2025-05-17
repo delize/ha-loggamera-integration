@@ -1,15 +1,12 @@
 {
   "domain": "loggamera",
-  "name": "Loggamera Integration",
-  "version": "1.0.0",
-  "documentation": "https://github.com/yourusername/loggamera",
-  "requirements": [
-    "requests"
-  ],
+  "name": "Loggamera",
+  "config_flow": true,
+  "documentation": "https://github.com/yourusername/ha-loggamera-integration",
+  "issue_tracker": "https://github.com/yourusername/ha-loggamera-integration/issues",
   "dependencies": [],
-  "codeowners": [
-    "@yourusername"
-  ],
+  "codeowners": ["@yourusername"],
+  "requirements": [],
   "iot_class": "cloud_polling",
-  "integration_type": "component"
+  "version": "0.1.0"
 }
