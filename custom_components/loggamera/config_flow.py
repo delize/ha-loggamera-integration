@@ -1,92 +1,84 @@
+"""Config flow for Loggamera integration."""
+import logging
 import voluptuous as vol
+
 from homeassistant import config_entries
 from homeassistant.core import callback
-import logging
+from homeassistant.const import CONF_NAME
 
-from .helpers import fetch_organizations, fetch_devices
+from .api import LoggameraAPI, LoggameraAPIError
+from .const import DOMAIN, CONF_API_KEY, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-DOMAIN = "loggamera"
-
-# Schemas for the forms:
-STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required("api_key"): str,
-})
-
-def organizations_schema(org_list):
-    """Build a schema for organization selection based on API data."""
-    options = {org["Id"]: org["Name"] for org in org_list}
-    return vol.Schema({
-        vol.Required("organization_id"): vol.In(options)
-    })
-
-def devices_schema(device_list):
-    """Build a schema for device selection based on API data."""
-    options = {device["Id"]: f'{device.get("Title") or device["Id"]} ({device["Class"]})' for device in device_list}
-    return vol.Schema({
-        vol.Required("device_id"): vol.In(options)
-    })
-
 class LoggameraConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Loggamera."""
+
     VERSION = 1
+    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(self, user_input=None):
-        """Handle user step for entering API key."""
+        """Handle the initial step."""
+        errors = {}
+
         if user_input is not None:
-            self.api_key = user_input["api_key"]
+            api_key = user_input[CONF_API_KEY]
+
             try:
-                organizations = await fetch_organizations(self.hass, self.api_key)
-                if not organizations:
-                    return self.async_abort(reason="no_organizations_found")
-                self.organizations = organizations
-                return await self.async_step_org_select()
-            except Exception as e:
-                _LOGGER.error("Error validating API Key: %s", e)
-                return self.async_abort(reason="invalid_api_key")
-                
-        return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA)
+                # Test API connection
+                api = LoggameraAPI(api_key)
+                await self.hass.async_add_executor_job(api.get_organizations)
 
-    async def async_step_org_select(self, user_input=None):
-        """Select organization after API key is validated."""
-        if user_input is not None:
-            self.selected_org = user_input["organization_id"]
-            devices = await fetch_devices(self.hass, self.api_key, self.selected_org)
-            if not devices:
-                return self.async_abort(reason="no_devices_found")
-            self.devices = devices
-            return await self.async_step_device_select()
-            
+                # If no error is raised, the connection is successful
+                return self.async_create_entry(
+                    title="Loggamera",
+                    data={
+                        CONF_API_KEY: api_key,
+                    },
+                )
+            except LoggameraAPIError as error:
+                _LOGGER.error(f"Failed to connect to Loggamera API: {error}")
+                errors["base"] = "cannot_connect"
+
+        # Show form
         return self.async_show_form(
-            step_id="org_select",
-            data_schema=organizations_schema(self.organizations)
-        )
-
-    async def async_step_device_select(self, user_input=None):
-        """Select device after organization is chosen."""
-        if user_input is not None:
-            return self.async_create_entry(
-                title="Loggamera",
-                data={
-                    "api_key": self.api_key,
-                    "organization_id": self.selected_org,
-                    "device_id": user_input["device_id"],
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_API_KEY): str,
                 }
-            )
-        return self.async_show_form(
-            step_id="device_select",
-            data_schema=devices_schema(self.devices)
+            ),
+            errors=errors,
         )
-
+    
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return LoggameraOptionsFlow(config_entry)
+        """Get the options flow for this handler."""
+        return LoggameraOptionsFlowHandler(config_entry)
 
-class LoggameraOptionsFlow(config_entries.OptionsFlow):
+class LoggameraOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle Loggamera options."""
+
     def __init__(self, config_entry):
+        """Initialize options flow."""
         self.config_entry = config_entry
-        
+
     async def async_step_init(self, user_input=None):
-        # Your options logic here if you need to change configuration.
-        return self.async_show_form(step_id="init")
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL,
+                        default=self.config_entry.options.get(
+                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                        ),
+                    ): int,
+                }
+            ),
+        )
