@@ -14,6 +14,7 @@ DEFAULT_SCAN_INTERVAL = 1200
 
 # Attributes
 ATTR_DEVICE_TYPE = "device_type"
+ATTR_DURATION_MINUTES = "duration_minutes"
 
 # API URLs
 API_URL = "https://platform.loggamera.se/api/v2"
