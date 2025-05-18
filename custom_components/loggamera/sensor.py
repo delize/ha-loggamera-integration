@@ -73,9 +73,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
     
-    # Wait for coordinator to fetch data
-    await coordinator.async_refresh()
-    
     entities = []
     
     # Process devices from coordinator data
@@ -90,44 +87,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         
         _LOGGER.debug(f"Setting up sensors for device: {device_name} (ID: {device_id}, Type: {device_type})")
         
-        # Get device data
-        try:
-            device_data = await hass.async_add_executor_job(
-                api.get_device_data, device_id, device_type
-            )
-            
-            if "Data" not in device_data or "Values" not in device_data["Data"]:
-                _LOGGER.warning(f"No values data for device {device_name}")
-                continue
-            
-            # Check if device has any sensors
-            values = device_data["Data"]["Values"]
-            if not values:
-                _LOGGER.warning(f"Device {device_name} has no sensor values")
-                continue
-            
-            # Check data timestamp for PowerMeter devices
-            if device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-                timestamp_str = device_data["Data"]["LogDateTimeUtc"]
-                try:
-                    # Parse the timestamp to check data age
-                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-                    now = dt_util.utcnow()
-                    age = now - timestamp
-                    
-                    # If data is more than 2 hours old, log a warning
-                    if age.total_seconds() > 7200:
-                        _LOGGER.warning(
-                            f"PowerMeter device {device_name} data is {age.total_seconds()/3600:.1f} hours old "
-                            f"(timestamp: {timestamp_str}). This may indicate an issue with the device."
-                        )
-                    else:
-                        _LOGGER.debug(f"PowerMeter device {device_name} data timestamp: {timestamp_str}")
-                except (ValueError, AttributeError):
-                    _LOGGER.warning(f"Could not parse timestamp: {timestamp_str}")
-            
-            # Create sensor entities for each value
-            for value in values:
+        # Get device data from coordinator instead of making direct API calls
+        device_data = coordinator.data.get("device_data", {}).get(str(device_id))
+        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+            _LOGGER.warning(f"No values data for device {device_name}")
+            continue
+        
+        # Check if device has any sensors
+        values = device_data["Data"]["Values"]
+        if not values:
+            _LOGGER.warning(f"Device {device_name} has no sensor values")
+            continue
+        
+        # Check data timestamp for PowerMeter devices
+        if device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
+            timestamp_str = device_data["Data"]["LogDateTimeUtc"]
+            try:
+                # Parse the timestamp to check data age
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                now = dt_util.utcnow()
+                age = now - timestamp
+                
+                # If data is more than 2 hours old, log a warning
+                if age.total_seconds() > 7200:
+                    _LOGGER.warning(
+                        f"PowerMeter device {device_name} data is {age.total_seconds()/3600:.1f} hours old "
+                        f"(timestamp: {timestamp_str}). This may indicate an issue with the device."
+                    )
+                else:
+                    _LOGGER.debug(f"PowerMeter device {device_name} data timestamp: {timestamp_str}")
+            except (ValueError, AttributeError):
+                _LOGGER.warning(f"Could not parse timestamp: {timestamp_str}")
+        
+        # Create sensor entities for each value
+        for value in values:
+            # Don't create sensor for boolean values (those are binary sensors)
+            if value.get("ValueType") != "BOOLEAN":
                 entity = LoggameraSensor(
                     coordinator=coordinator,
                     api=api,
@@ -135,13 +130,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     device_type=device_type,
                     device_name=device_name,
                     value_data=value,
+                    hass=hass,
                 )
                 entities.append(entity)
-            
-            _LOGGER.debug(f"Added {len(values)} sensors for device {device_name}")
-            
-        except Exception as err:
-            _LOGGER.error(f"Error setting up sensors for device {device_name}: {err}")
+        
+        _LOGGER.debug(f"Added {len(entities)} sensors for device {device_name}")
     
     if entities:
         async_add_entities(entities)
@@ -152,13 +145,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class LoggameraSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Loggamera sensor."""
 
-    def __init__(self, coordinator, api, device_id, device_type, device_name, value_data):
+    def __init__(self, coordinator, api, device_id, device_type, device_name, value_data, hass):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.api = api
         self.device_id = device_id
         self.device_type = device_type
         self._device_name = device_name
+        self._hass = hass
         
         # Value data
         self._value_name = value_data.get("Name", "Unknown")
@@ -232,34 +226,26 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         try:
-            # Find the current device in updated data
-            for device in self.coordinator.data.get("devices", []):
-                if device["Id"] == self.device_id:
-                    # Get device data
-                    device_data = None
-                    for device_id, data in self.coordinator.data.get("device_data", {}).items():
-                        if int(device_id) == self.device_id:
-                            device_data = data
-                            break
-                    
-                    if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
-                        return self._last_value
-                    
-                    # Track data update timestamp for PowerMeter
-                    if self.device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-                        try:
-                            timestamp = datetime.fromisoformat(device_data["Data"]["LogDateTimeUtc"].replace('Z', '+00:00'))
-                            if self._last_update_time != timestamp:
-                                self._last_update_time = timestamp
-                                self._stale_data_reported = False  # Reset stale data flag on new data
-                        except (ValueError, AttributeError):
-                            pass
-                    
-                    # Find the value
-                    for value in device_data["Data"]["Values"]:
-                        if value.get("Name") == self._value_name:
-                            self._last_value = value.get("Value")
-                            return self._last_value
+            # Find the device data in coordinator
+            device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
+            if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+                return self._last_value
+            
+            # Track data update timestamp for PowerMeter
+            if self.device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
+                try:
+                    timestamp = datetime.fromisoformat(device_data["Data"]["LogDateTimeUtc"].replace('Z', '+00:00'))
+                    if self._last_update_time != timestamp:
+                        self._last_update_time = timestamp
+                        self._stale_data_reported = False  # Reset stale data flag on new data
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Find the value
+            for value in device_data["Data"]["Values"]:
+                if value.get("Name") == self._value_name:
+                    self._last_value = value.get("Value")
+                    return self._last_value
             
             return self._last_value
         except Exception as err:
@@ -269,7 +255,14 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
         """Return additional state attributes."""
-        return {
+        attrs = {
             "loggamera_name": self._value_name,
             "loggamera_type": self._value_type,
         }
+        
+        # Add timestamp if available
+        device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
+        if device_data and "Data" in device_data and "LogDateTimeUtc" in device_data["Data"]:
+            attrs["last_update"] = device_data["Data"]["LogDateTimeUtc"]
+            
+        return attrs
