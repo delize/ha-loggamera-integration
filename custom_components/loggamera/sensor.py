@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.const import (
@@ -68,7 +69,7 @@ STATE_CLASS_MAP = {
     "WaterVolume": SensorStateClass.TOTAL_INCREASING,
 }
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     """Set up Loggamera sensors based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
@@ -76,65 +77,120 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities = []
     
     # Process devices from coordinator data
-    if "devices" not in coordinator.data:
+    if not coordinator.data or "devices" not in coordinator.data:
         _LOGGER.error("No devices data in coordinator")
         return
     
-    for device in coordinator.data["devices"]:
+    for device in coordinator.data.get("devices", []):
         device_id = device["Id"]
         device_type = device["Class"]
         device_name = device.get("Title", f"{device_type} {device_id}")
         
         _LOGGER.debug(f"Setting up sensors for device: {device_name} (ID: {device_id}, Type: {device_type})")
         
-        # Get device data from coordinator instead of making direct API calls
+        # Get device data from coordinator
         device_data = coordinator.data.get("device_data", {}).get(str(device_id))
-        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
-            _LOGGER.warning(f"No values data for device {device_name}")
+        
+        if not device_data:
+            _LOGGER.warning(f"No device data found for {device_name}")
             continue
         
-        # Check if device has any sensors
-        values = device_data["Data"]["Values"]
-        if not values:
-            _LOGGER.warning(f"Device {device_name} has no sensor values")
+        if "Data" not in device_data:
+            _LOGGER.warning(f"No 'Data' in device data for {device_name}")
             continue
-        
-        # Check data timestamp for PowerMeter devices
-        if device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-            timestamp_str = device_data["Data"]["LogDateTimeUtc"]
-            try:
-                # Parse the timestamp to check data age
-                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-                now = dt_util.utcnow()
-                age = now - timestamp
+            
+        # Special handling for PowerMeter devices - check for PowerReadings
+        if device_type == "PowerMeter" and "PowerReadings" in device_data["Data"]:
+            readings = device_data["Data"]["PowerReadings"]
+            if readings:
+                latest_reading = readings[-1]
+                _LOGGER.debug(f"Latest PowerReading for {device_name}: {latest_reading}")
                 
-                # If data is more than 2 hours old, log a warning
-                if age.total_seconds() > 7200:
-                    _LOGGER.warning(
-                        f"PowerMeter device {device_name} data is {age.total_seconds()/3600:.1f} hours old "
-                        f"(timestamp: {timestamp_str}). This may indicate an issue with the device."
+                # Create power sensor
+                if "PowerInkW" in latest_reading:
+                    entities.append(
+                        LoggameraSensor(
+                            coordinator=coordinator,
+                            api=api,
+                            device_id=device_id,
+                            device_type=device_type,
+                            device_name=device_name,
+                            value_data={
+                                "Name": "PowerInkW",
+                                "ClearTextName": "Current Power",
+                                "Value": latest_reading["PowerInkW"],
+                                "ValueType": "NUMBER",
+                                "UnitType": "POWER",
+                                "UnitPresentation": "kW"
+                            },
+                            hass=hass,
+                        )
                     )
-                else:
-                    _LOGGER.debug(f"PowerMeter device {device_name} data timestamp: {timestamp_str}")
-            except (ValueError, AttributeError):
-                _LOGGER.warning(f"Could not parse timestamp: {timestamp_str}")
+                
+                # Create energy consumption sensor
+                if "ConsumedTotalInkWh" in latest_reading:
+                    entities.append(
+                        LoggameraSensor(
+                            coordinator=coordinator,
+                            api=api,
+                            device_id=device_id,
+                            device_type=device_type,
+                            device_name=device_name,
+                            value_data={
+                                "Name": "ConsumedTotalInkWh",
+                                "ClearTextName": "Energy Consumption",
+                                "Value": latest_reading["ConsumedTotalInkWh"],
+                                "ValueType": "NUMBER",
+                                "UnitType": "ENERGY",
+                                "UnitPresentation": "kWh"
+                            },
+                            hass=hass,
+                        )
+                    )
+                
+                # Create energy export sensor
+                if "ExportedTotalInkWh" in latest_reading:
+                    entities.append(
+                        LoggameraSensor(
+                            coordinator=coordinator,
+                            api=api,
+                            device_id=device_id,
+                            device_type=device_type,
+                            device_name=device_name,
+                            value_data={
+                                "Name": "ExportedTotalInkWh",
+                                "ClearTextName": "Energy Export",
+                                "Value": latest_reading["ExportedTotalInkWh"],
+                                "ValueType": "NUMBER",
+                                "UnitType": "ENERGY",
+                                "UnitPresentation": "kWh"
+                            },
+                            hass=hass,
+                        )
+                    )
         
-        # Create sensor entities for each value
-        for value in values:
-            # Don't create sensor for boolean values (those are binary sensors)
-            if value.get("ValueType") != "BOOLEAN":
-                entity = LoggameraSensor(
-                    coordinator=coordinator,
-                    api=api,
-                    device_id=device_id,
-                    device_type=device_type,
-                    device_name=device_name,
-                    value_data=value,
-                    hass=hass,
-                )
-                entities.append(entity)
-        
-        _LOGGER.debug(f"Added {len(entities)} sensors for device {device_name}")
+        # Standard handling for devices with Values
+        if "Values" in device_data["Data"]:
+            values = device_data["Data"]["Values"]
+            if not values:
+                _LOGGER.warning(f"Device {device_name} has no sensor values in Values array")
+                continue
+            
+            # Create sensor entities for each value that is not a boolean
+            for value in values:
+                if value.get("ValueType") != "BOOLEAN":
+                    entity = LoggameraSensor(
+                        coordinator=coordinator,
+                        api=api,
+                        device_id=device_id,
+                        device_type=device_type,
+                        device_name=device_name,
+                        value_data=value,
+                        hass=hass,
+                    )
+                    entities.append(entity)
+        else:
+            _LOGGER.warning(f"No 'Values' data for device {device_name}")
     
     if entities:
         async_add_entities(entities)
@@ -153,6 +209,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self.device_type = device_type
         self._device_name = device_name
         self._hass = hass
+        self._value_data = value_data
         
         # Value data
         self._value_name = value_data.get("Name", "Unknown")
@@ -160,11 +217,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self._value_type = value_data.get("ValueType", "Unknown")
         self._unit_type = value_data.get("UnitType", "")
         self._unit = value_data.get("UnitPresentation", "")
-        
-        # Last value
-        self._last_value = None
-        self._last_update_time = None
-        self._stale_data_reported = False
+        self._last_value = value_data.get("Value", None)
         
         # Entity attributes
         self._attr_unique_id = f"loggamera_{device_id}_{self._value_name}"
@@ -173,11 +226,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # Set device class based on value name or type
         self._attr_device_class = self._get_device_class()
         
-        # Set state class
+        # Set state class based on value name
         self._attr_state_class = STATE_CLASS_MAP.get(self._value_name)
         
         # Set unit of measurement
-        self._attr_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
+        self._attr_native_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
         
         # Device info
         self._attr_device_info = DeviceInfo(
@@ -186,6 +239,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             manufacturer="Loggamera",
             model=device_type,
         )
+        
+        _LOGGER.debug(f"Created sensor: {self.name} ({self._value_name}), "
+                      f"device_class: {self._attr_device_class}, "
+                      f"state_class: {self._attr_state_class}, "
+                      f"unit: {self._attr_native_unit_of_measurement}")
     
     def _get_device_class(self):
         """Determine sensor device class based on value name and unit."""
@@ -193,7 +251,21 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if self._value_name in DEVICE_CLASS_MAP:
             return DEVICE_CLASS_MAP[self._value_name]
         
-        # Try to determine from clear name for common sensors
+        # Try to determine from unit type
+        if self._unit_type:
+            unit_type_lower = self._unit_type.lower()
+            if "power" in unit_type_lower:
+                return SensorDeviceClass.POWER
+            elif "energy" in unit_type_lower:
+                return SensorDeviceClass.ENERGY
+            elif "temp" in unit_type_lower:
+                return SensorDeviceClass.TEMPERATURE
+            elif "humid" in unit_type_lower:
+                return SensorDeviceClass.HUMIDITY
+            elif "water" in unit_type_lower:
+                return SensorDeviceClass.WATER
+        
+        # Try to determine from clear name
         clear_name_lower = self._clear_name.lower()
         
         if "temperatur" in clear_name_lower:
@@ -225,28 +297,37 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        try:
-            # Find the device data in coordinator
+        # Special handling for PowerMeter devices with PowerReadings
+        if self.device_type == "PowerMeter":
             device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
-            if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
-                return self._last_value
             
-            # Track data update timestamp for PowerMeter
-            if self.device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-                try:
-                    timestamp = datetime.fromisoformat(device_data["Data"]["LogDateTimeUtc"].replace('Z', '+00:00'))
-                    if self._last_update_time != timestamp:
-                        self._last_update_time = timestamp
-                        self._stale_data_reported = False  # Reset stale data flag on new data
-                except (ValueError, AttributeError):
-                    pass
+            if device_data and "Data" in device_data:
+                # Check for PowerReadings
+                if "PowerReadings" in device_data["Data"] and device_data["Data"]["PowerReadings"]:
+                    readings = device_data["Data"]["PowerReadings"]
+                    latest_reading = readings[-1]
+                    
+                    # Return the appropriate value based on this sensor's name
+                    if self._value_name == "PowerInkW" and "PowerInkW" in latest_reading:
+                        self._last_value = latest_reading["PowerInkW"]
+                        return self._last_value
+                    elif self._value_name == "ConsumedTotalInkWh" and "ConsumedTotalInkWh" in latest_reading:
+                        self._last_value = latest_reading["ConsumedTotalInkWh"]
+                        return self._last_value
+                    elif self._value_name == "ExportedTotalInkWh" and "ExportedTotalInkWh" in latest_reading:
+                        self._last_value = latest_reading["ExportedTotalInkWh"]
+                        return self._last_value
+        
+        # Standard handling for Values
+        try:
+            device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
+            if device_data and "Data" in device_data and "Values" in device_data["Data"]:
+                for value in device_data["Data"]["Values"]:
+                    if value.get("Name") == self._value_name:
+                        self._last_value = value.get("Value")
+                        return self._last_value
             
-            # Find the value
-            for value in device_data["Data"]["Values"]:
-                if value.get("Name") == self._value_name:
-                    self._last_value = value.get("Value")
-                    return self._last_value
-            
+            # Fall back to the last known value
             return self._last_value
         except Exception as err:
             _LOGGER.error(f"Error getting value for {self.name}: {err}")

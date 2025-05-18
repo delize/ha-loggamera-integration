@@ -1,27 +1,27 @@
-"""The Loggamera integration."""
+"""Custom integration for Loggamera Smart Meters and Sensors"""
 import logging
-import asyncio
+import time
 from datetime import timedelta
-
-import voluptuous as vol
+from typing import Any, Dict
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import LoggameraAPI, LoggameraAPIError
 from .const import (
     DOMAIN,
+    PLATFORMS,
     CONF_API_KEY,
     CONF_ORGANIZATION_ID,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
-    PLATFORMS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,9 +33,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
-    import time
-    from datetime import timedelta
-    
     # Get configuration from config entry
     api_key = entry.data[CONF_API_KEY]
     organization_id = entry.data.get(CONF_ORGANIZATION_ID)
@@ -48,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Verify connectivity before proceeding
     try:
-        # Test the connection to the API - use async_add_executor_job for blocking calls
+        # Test the connection to the API
         org_response = await hass.async_add_executor_job(api.get_organizations)
         
         if "Data" not in org_response or "Organizations" not in org_response["Data"]:
@@ -80,7 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         start_time = time.time()
         
         try:
-            # Get organizations - use async_add_executor_job for blocking API calls
+            # Get organizations
             org_response = await hass.async_add_executor_job(api.get_organizations)
             if "Data" not in org_response or "Organizations" not in org_response["Data"]:
                 raise UpdateFailed("Invalid organization response format")
@@ -160,9 +157,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info(f"Loggamera integration set up with scan interval: {scan_interval} seconds (PowerMeter data typically updates every ~30 minutes)")
     return True
 
-async def async_update_options(hass: HomeAssistant, entry: ConfigEntry):
+async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update options for Loggamera integration."""
     await hass.config_entries.async_reload(entry.entry_id)
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
