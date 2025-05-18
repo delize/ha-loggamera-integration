@@ -12,6 +12,9 @@ CONF_SCAN_INTERVAL = "scan_interval"
 # Default 20 minutes (1200 seconds) - optimized for PowerMeter which typically updates every ~30 minutes
 DEFAULT_SCAN_INTERVAL = 1200
 
+# Attributes
+ATTR_DEVICE_TYPE = "device_type"
+
 # API URLs
 API_URL = "https://platform.loggamera.se/api/v2"
 API_ENDPOINT_ORGANIZATIONS = "Organizations"

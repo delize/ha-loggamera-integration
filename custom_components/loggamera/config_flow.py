@@ -80,7 +80,9 @@ class LoggameraOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize options flow."""
-        self.config_entry = config_entry
+        # Instead of assigning self.config_entry directly, store just the options
+        self._config_entry = config_entry
+        self._options = config_entry.options
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -90,7 +92,7 @@ class LoggameraOptionsFlow(config_entries.OptionsFlow):
         options = {
             vol.Optional(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(
+                default=self._options.get(
                     CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                 ),
             ): vol.All(vol.Coerce(int), vol.Range(min=300, max=3600)),
