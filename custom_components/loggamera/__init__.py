@@ -33,6 +33,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
+    import time
+    from datetime import timedelta
+    
     # Get configuration from config entry
     api_key = entry.data[CONF_API_KEY]
     organization_id = entry.data.get(CONF_ORGANIZATION_ID)
@@ -45,120 +48,127 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Verify connectivity before proceeding
     try:
-        # Test the connection to the API
+        # Test the connection to the API - use async_add_executor_job for blocking calls
         org_response = await hass.async_add_executor_job(api.get_organizations)
         
         if "Data" not in org_response or "Organizations" not in org_response["Data"]:
-            _LOGGER.error("Failed to fetch organizations - invalid response format")
-            raise ConfigEntryNotReady("Invalid response from Loggamera API")
-        
-        # If no organization ID is set, try to use the first one
+            raise ConfigEntryNotReady("Invalid organization response from API")
+            
+        # If we don't have an organization ID yet, get it from the response
         if not organization_id and org_response["Data"]["Organizations"]:
             organization_id = org_response["Data"]["Organizations"][0]["Id"]
             api.organization_id = organization_id
-            _LOGGER.info("Using first available organization")
             
-        # Test device access
-        try:
-            devices_response = await hass.async_add_executor_job(api.get_devices)
-            if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
-                _LOGGER.error("Failed to fetch devices - invalid response format")
-                raise ConfigEntryNotReady("Invalid device response from Loggamera API")
-        except LoggameraAPIError as err:
-            _LOGGER.error(f"Error accessing devices: {err}")
-            raise ConfigEntryNotReady(f"Failed to access Loggamera devices: {err}")
+            # Update the config entry with the organization ID
+            new_data = dict(entry.data)
+            new_data[CONF_ORGANIZATION_ID] = organization_id
+            hass.config_entries.async_update_entry(entry, data=new_data)
+            
+        # Verify we can access devices
+        devices_response = await hass.async_add_executor_job(api.get_devices)
+        if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
+            raise ConfigEntryNotReady("Invalid device response from API")
             
     except LoggameraAPIError as err:
         _LOGGER.error(f"Failed to connect to Loggamera API: {err}")
         raise ConfigEntryNotReady(f"Failed to connect to Loggamera API: {err}")
-    
-    # Define the update method
-    async def async_update_data():
-        """Fetch data from Loggamera API."""
+        
+    # Create update coordinator
+    async def _update_data():
+        """Fetch data from API."""
+        _LOGGER.debug("Starting data update cycle")
+        start_time = time.time()
+        
         try:
+            # Get organizations - use async_add_executor_job for blocking API calls
+            org_response = await hass.async_add_executor_job(api.get_organizations)
+            if "Data" not in org_response or "Organizations" not in org_response["Data"]:
+                raise UpdateFailed("Invalid organization response format")
+                
             # Get devices
             devices_response = await hass.async_add_executor_job(api.get_devices)
             if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
                 raise UpdateFailed("Invalid device response format")
-            
+                
             devices = devices_response["Data"]["Devices"]
             
             # Get scenarios
-            scenarios = []
             try:
                 scenarios_response = await hass.async_add_executor_job(api.get_scenarios)
+                scenarios = []
                 if "Data" in scenarios_response and "Scenarios" in scenarios_response["Data"]:
                     scenarios = scenarios_response["Data"]["Scenarios"]
-            except LoggameraAPIError as err:
-                _LOGGER.warning(f"Failed to get scenarios: {err}")
-            
-            # Get device data
+            except LoggameraAPIError:
+                _LOGGER.warning("Failed to get scenarios")
+                scenarios = []
+                
+            # Get data for each device
             device_data = {}
             for device in devices:
                 device_id = device["Id"]
                 device_type = device["Class"]
                 
                 try:
+                    # Use async_add_executor_job for blocking API calls
                     data = await hass.async_add_executor_job(
                         api.get_device_data, device_id, device_type
                     )
                     if data:
                         device_data[device_id] = data
-                except LoggameraAPIError as err:
-                    _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
-            
-            return {
+                except LoggameraAPIError:
+                    _LOGGER.warning(f"Failed to get data for device {device_id}")
+                    
+            result = {
+                "organizations": org_response["Data"]["Organizations"],
                 "devices": devices,
                 "scenarios": scenarios,
                 "device_data": device_data,
             }
+            
+            _LOGGER.debug(f"Finished fetching loggamera data in {time.time() - start_time:.3f} seconds (success: True)")
+            return result
+            
         except Exception as err:
-            _LOGGER.error(f"Error fetching data: {err}")
-            raise UpdateFailed(f"Error fetching data: {err}")
-    
-    # Create update coordinator
+            _LOGGER.error(f"Error fetching loggamera data: {err}")
+            _LOGGER.debug(f"Finished fetching loggamera data in {time.time() - start_time:.3f} seconds (success: False)")
+            raise UpdateFailed(f"Error fetching loggamera data: {err}")
+            
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
         name=DOMAIN,
-        update_method=async_update_data,
+        update_method=_update_data,
         update_interval=timedelta(seconds=scan_interval),
     )
     
     # Fetch initial data
     await coordinator.async_refresh()
     
-    # Store API client and coordinator in hass.data
+    # Store API and coordinator in hass.data
+    hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
-        "api": api,
         "coordinator": coordinator,
+        "api": api,
     }
     
-    # Log the scan interval for debugging
-    _LOGGER.info(
-        f"Loggamera integration set up with scan interval: {scan_interval} seconds "
-        f"(PowerMeter data typically updates every ~30 minutes)"
-    )
-    
-    # Set up all supported platforms - properly awaited
+    # Set up all platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
-    # Register update listener for config entry changes
+    # Register update listener for options
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     
+    _LOGGER.info(f"Loggamera integration set up with scan interval: {scan_interval} seconds (PowerMeter data typically updates every ~30 minutes)")
     return True
 
-async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Update options for the Loggamera integration."""
+async def async_update_options(hass: HomeAssistant, entry: ConfigEntry):
+    """Update options for Loggamera integration."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    
-    # Clean up if unload was successful
     if unload_ok:
-        del hass.data[DOMAIN][entry.entry_id]
-    
+        hass.data[DOMAIN].pop(entry.entry_id)
+        if not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN)
     return unload_ok

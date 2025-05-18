@@ -1,20 +1,19 @@
 """Support for Loggamera binary sensors."""
 import logging
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, Optional
 
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
 
-from .api import LoggameraAPI, LoggameraAPIError
 from .const import DOMAIN, ATTR_DEVICE_TYPE
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,100 +33,65 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
     
-    try:
-        # Try to force a refresh to get latest data
-        await coordinator.async_refresh()
-    except Exception as err:
-        _LOGGER.error(f"Error refreshing coordinator: {err}")
-        # Continue with available data or none
-    
     binary_sensors = []
     
-    # Get devices from coordinator data
-    if not coordinator.data or "devices" not in coordinator.data:
-        _LOGGER.error("No devices found in coordinator data")
-        return
-    
-    devices = coordinator.data.get("devices", [])
-    
-    for device in devices:
+    # Get devices from coordinator
+    for device in coordinator.data.get("devices", []):
         device_id = device["Id"]
-        device_type = device["Class"]
-        device_name = device["Title"] or f"{device_type}-{device_id}"
+        device_name = device.get("Title", f"Device {device_id}")
+        device_type = device.get("Class", "Unknown")
         
-        try:
-            # Get device-specific data to create binary sensors
-            # This will be performed in a background thread
-            device_data_response = await hass.async_add_executor_job(
-                api.get_device_data, device_id, device_type
-            )
+        # Process device data to find binary sensors
+        device_data = coordinator.data.get("device_data", {}).get(str(device_id))
+        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+            continue
             
-            if not device_data_response or "Data" not in device_data_response or "Values" not in device_data_response["Data"]:
-                _LOGGER.warning(f"Failed to get any data for device {device_name}")
-                continue
-            
-            # Process the available values
-            values = device_data_response["Data"]["Values"]
-            
-            # Look for alarm-related values
-            alarm_active = next((v for v in values if v["Name"] == "alarmActive"), None)
-            alarm_text = next((v for v in values if v["Name"] == "alarmInClearText"), None)
-            
-            # Add alarm binary sensor if alarm data is available
-            if alarm_active:
+        for value in device_data["Data"]["Values"]:
+            # Only process boolean values
+            if value.get("ValueType") == "BOOLEAN":
                 binary_sensors.append(
-                    LoggameraAlarmBinarySensor(
-                        coordinator,
-                        device_id,
-                        device_type,
-                        device_name,
-                        alarm_active,
-                        alarm_text,
+                    LoggameraBinarySensor(
+                        coordinator=coordinator,
+                        api=api,
+                        device_id=device_id,
+                        device_name=device_name,
+                        device_type=device_type,
+                        value_data=value,
                     )
                 )
-        
-        except LoggameraAPIError as err:
-            _LOGGER.error(f"Failed to get data for device {device_name}: {err}")
-            continue
     
     if binary_sensors:
-        _LOGGER.info(f"Adding {len(binary_sensors)} Loggamera binary sensors")
         async_add_entities(binary_sensors)
+        _LOGGER.info(f"Adding {len(binary_sensors)} Loggamera binary sensors")
 
 
-class LoggameraAlarmBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """Representation of a Loggamera alarm binary sensor."""
+class LoggameraBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    """Representation of a Loggamera binary sensor."""
 
-    def __init__(
-        self,
-        coordinator: DataUpdateCoordinator,
-        device_id: int,
-        device_type: str,
-        device_name: str,
-        alarm_active_value: Dict[str, Any],
-        alarm_text_value: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    def __init__(self, coordinator, api, device_id, device_name, device_type, value_data):
         """Initialize the binary sensor."""
         super().__init__(coordinator)
-        
+        self.api = api
         self._device_id = device_id
-        self._device_type = device_type
         self._device_name = device_name
-        self._alarm_text = alarm_text_value.get("Value", "") if alarm_text_value else ""
+        self._device_type = device_type
+        self._value_data = value_data
         
-        # Generate a unique ID for the sensor
-        self._attr_unique_id = f"{DOMAIN}_{device_id}_alarm"
+        # Value properties
+        self._value_name = value_data.get("Name", "Unknown")
+        self._clear_name = value_data.get("ClearTextName", self._value_name)
         
-        # Set name
-        self._attr_name = f"{device_name} Alarm"
-        
-        # Set state
-        self._attr_is_on = alarm_active_value["Value"].lower() in ["true", "1", "yes", "on"]
+        # Entity attributes
+        self._attr_unique_id = f"loggamera_{device_id}_{self._value_name}"
+        self._attr_name = f"{device_name} {self._clear_name}"
         
         # Set device class
-        self._attr_device_class = ALARM_DEVICE_CLASSES.get(device_type, BinarySensorDeviceClass.PROBLEM)
+        if "alarm" in self._value_name.lower() or "alarm" in self._clear_name.lower():
+            self._attr_device_class = BinarySensorDeviceClass.PROBLEM
+        else:
+            self._attr_device_class = ALARM_DEVICE_CLASSES.get(device_type)
         
-        # Set device info
+        # Device info
         self._attr_device_info = {
             "identifiers": {(DOMAIN, str(device_id))},
             "name": device_name,
@@ -135,49 +99,41 @@ class LoggameraAlarmBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "model": device_type,
         }
         
-        # Set extra attributes
-        self._attr_extra_state_attributes = {
-            ATTR_DEVICE_TYPE: device_type,
-            "alarm_text": self._alarm_text,
-        }
+        self._state = False
+        self._last_update = None
 
-    async def async_update(self) -> None:
-        """Update the binary sensor."""
-        await self.coordinator.async_request_refresh()
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        # Get API client from hass.data
-        api = None
-        for entry_id, entry_data in self.hass.data[DOMAIN].items():
-            if "api" in entry_data:
-                api = entry_data["api"]
-                break
-        
-        if not api:
-            return
-        
-        # Get latest device data
+    @property
+    def is_on(self):
+        """Return true if the binary sensor is on."""
         try:
-            device_data = api.get_device_data(self._device_id, self._device_type)
+            device_data = self.coordinator.data.get("device_data", {}).get(str(self._device_id))
+            if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+                return self._state
+                
+            for value in device_data["Data"]["Values"]:
+                if value.get("Name") == self._value_name:
+                    value_str = str(value.get("Value", "")).lower()
+                    self._state = value_str in ["true", "yes", "1", "on"]
+                    
+                    # Update timestamp if available
+                    if "LogDateTimeUtc" in device_data["Data"]:
+                        self._last_update = device_data["Data"]["LogDateTimeUtc"]
+                    
+                    return self._state
             
-            if "Data" in device_data and "Values" in device_data["Data"]:
-                values = device_data["Data"]["Values"]
-                
-                # Find alarm values
-                alarm_active = next((v for v in values if v["Name"] == "alarmActive"), None)
-                alarm_text = next((v for v in values if v["Name"] == "alarmInClearText"), None)
-                
-                # Update state if alarm active found
-                if alarm_active and "Value" in alarm_active:
-                    self._attr_is_on = alarm_active["Value"].lower() in ["true", "1", "yes", "on"]
-                
-                # Update alarm text if found
-                if alarm_text and "Value" in alarm_text:
-                    self._alarm_text = alarm_text["Value"]
-                    self._attr_extra_state_attributes["alarm_text"] = self._alarm_text
-        except LoggameraAPIError as err:
-            _LOGGER.error(f"Error updating binary sensor: {err}")
+            return self._state
+        except Exception as err:
+            _LOGGER.error(f"Error getting state for {self.name}: {err}")
+            return self._state
+
+    @property
+    def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
+        """Return extra state attributes."""
+        attrs = {
+            ATTR_DEVICE_TYPE: self._device_type,
+        }
         
-        self.async_write_ha_state()
+        if self._last_update:
+            attrs["last_update"] = self._last_update
+            
+        return attrs
