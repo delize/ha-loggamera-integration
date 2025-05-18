@@ -1,178 +1,175 @@
 #!/usr/bin/env python3
 """
-Test connection to Loggamera API.
-This script helps diagnose connection issues with the Loggamera API.
+Loggamera API Connection Tester
+
+This script tests the connection to the Loggamera API and verifies that
+your API key can retrieve organizations and devices.
+
+Usage: python3 test_connection.py YOUR_API_KEY [ORGANIZATION_ID]
 """
 
-import argparse
-import ssl
 import sys
 import json
-import platform
+import logging
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.ssl_ import create_urllib3_context
-import socket
-import datetime
+import ssl
+import certifi
+import platform
+from datetime import datetime
 
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("loggamera_test")
 
-def print_section(title):
-    """Print a section title."""
-    print("\n" + "=" * 60)
-    print(f" {title} ".center(60, "="))
-    print("=" * 60)
+# API constants
+BASE_URL = "https://platform.loggamera.se/api/v2"
+ORGANIZATIONS_ENDPOINT = "Organizations"
+DEVICES_ENDPOINT = "Devices"
 
+def log_system_info():
+    """Log system and environment information."""
+    logger.info("=== System Information ===")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"OpenSSL version: {ssl.OPENSSL_VERSION}")
+    logger.info(f"Certifi version: {certifi.__version__}")
+    logger.info(f"Certifi path: {certifi.where()}")
+    logger.info(f"Platform: {platform.platform()}")
+    logger.info(f"Requests version: {requests.__version__}")
+    logger.info(f"API URL: {BASE_URL}")
+    logger.info("=========================")
 
-def print_info(label, value):
-    """Print formatted info."""
-    print(f"{label.ljust(25)}: {value}")
-
-
-def check_tls_with_requests(url, api_key):
-    """Try to connect using different TLS configurations with requests."""
-    print_section("Testing connection with requests")
-    
-    # Define TLS versions to try
-    tls_versions = [
-        ("Default", None),
-        ("TLS 1.2", ssl.PROTOCOL_TLSv1_2),
-    ]
-    
-    for name, version in tls_versions:
-        print(f"\nTrying with {name} TLS settings:")
-        try:
-            session = requests.Session()
-            
-            # Create adapter with specific TLS version if provided
-            if version:
-                class CustomAdapter(HTTPAdapter):
-                    def init_poolmanager(self, *args, **kwargs):
-                        context = create_urllib3_context()
-                        # Set the protocol version
-                        context.options |= (ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | 
-                                           ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1)
-                        kwargs['ssl_context'] = context
-                        return super().init_poolmanager(*args, **kwargs)
-                
-                adapter = CustomAdapter()
-                session.mount('https://', adapter)
-            
-            # Make the request
-            data = {"ApiKey": api_key}
-            start_time = datetime.datetime.now()
-            response = session.post(
-                url,
-                headers={"Content-Type": "application/json"},
-                json=data,
-                timeout=10
-            )
-            end_time = datetime.datetime.now()
-            
-            # Print results
-            print(f"  Status code: {response.status_code}")
-            print(f"  Response time: {(end_time - start_time).total_seconds():.2f} seconds")
-            if response.text:
-                try:
-                    json_response = response.json()
-                    print(f"  Response: {json.dumps(json_response, indent=2)[:200]}...")
-                except:
-                    print(f"  Response: {response.text[:200]}...")
-            
-            print(f"  SUCCESS with {name} TLS settings")
-            return True
-            
-        except Exception as e:
-            print(f"  ERROR: {str(e)}")
-            print(f"  FAILED with {name} TLS settings")
-    
-    return False
-
-
-def check_socket_connection(host, port=443):
-    """Check basic socket connection to the host."""
-    print_section("Testing basic socket connection")
+def make_request(endpoint, data):
+    """Make a request to the Loggamera API."""
+    url = f"{BASE_URL}/{endpoint}"
     
     try:
-        start_time = datetime.datetime.now()
-        sock = socket.create_connection((host, port), timeout=5)
-        end_time = datetime.datetime.now()
+        logger.info(f"Making request to {url}")
         
-        print_info("Connection", "SUCCESS")
-        print_info("Connection time", f"{(end_time - start_time).total_seconds():.2f} seconds")
+        response = requests.post(
+            url,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(data),
+            timeout=30,
+            verify=certifi.where()  # Explicitly use certifi for TLS verification
+        )
         
-        # Get socket info
-        local_addr, local_port = sock.getsockname()
-        print_info("Local address", f"{local_addr}:{local_port}")
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                
+                # Check for API error
+                if data.get("Error") is not None and data.get("Error") != "null" and data.get("Error") != "":
+                    logger.error(f"API error: {data.get('Error')}")
+                    return None
+                    
+                return data
+            except ValueError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                logger.debug(f"Response text: {response.text}")
+                return None
+        else:
+            logger.error(f"API error {response.status_code}: {response.text}")
+            return None
+            
+    except requests.exceptions.SSLError as ssl_error:
+        logger.error(f"SSL Error: {ssl_error}")
         
-        remote_addr, remote_port = sock.getpeername()
-        print_info("Remote address", f"{remote_addr}:{remote_port}")
-        
-        sock.close()
-        return True
-    except Exception as e:
-        print_info("Connection", "FAILED")
-        print_info("Error", str(e))
-        return False
+        # Try to determine more specific SSL error details
+        error_str = str(ssl_error)
+        if "CERTIFICATE_VERIFY_FAILED" in error_str:
+            logger.error("Certificate verification failed. This could be due to a missing CA certificate.")
+            logger.error(f"Certificate path used: {certifi.where()}")
+            logger.error("\nTry running the diagnose_tls.sh script to fix this issue.")
+        elif "WRONG_VERSION_NUMBER" in error_str:
+            logger.error("Wrong TLS protocol version. The server might not support the TLS version being used.")
+            
+        return None
+    except requests.RequestException as error:
+        logger.error(f"Error communicating with Loggamera API: {error}")
+        return None
 
+def get_organizations(api_key):
+    """Get organization data."""
+    data = {"ApiKey": api_key}
+    return make_request(ORGANIZATIONS_ENDPOINT, data)
 
-def print_system_info():
-    """Print system information."""
-    print_section("System Information")
-    
-    print_info("Python version", sys.version.replace('\n', ' '))
-    print_info("Platform", platform.platform())
-    print_info("OpenSSL version", ssl.OPENSSL_VERSION)
-    print_info("Default TLS version", ssl._DEFAULT_CIPHERS)
-    
-    # Try to get more SSL info
-    context = ssl.create_default_context()
-    print_info("SSL verify mode", context.verify_mode)
-    print_info("SSL check hostname", context.check_hostname)
-
+def get_devices(api_key, organization_id=None):
+    """Get device data."""
+    data = {"ApiKey": api_key}
+    if organization_id:
+        data["OrganizationId"] = organization_id
+    return make_request(DEVICES_ENDPOINT, data)
 
 def main():
-    """Main function."""
-    parser = argparse.ArgumentParser(description="Test connection to Loggamera API")
-    parser.add_argument("api_key", help="Your Loggamera API key")
-    parser.add_argument("--url", default="https://platform.loggamera.se/api/v2/Organizations",
-                        help="API URL to test (default: %(default)s)")
-    args = parser.parse_args()
+    """Main entry point."""
+    # Check command-line arguments
+    if len(sys.argv) < 2:
+        print(f"Usage: python3 {sys.argv[0]} YOUR_API_KEY [ORGANIZATION_ID]")
+        sys.exit(1)
     
-    host = args.url.split("//")[1].split("/")[0]
-    print(f"Testing connection to {args.url}")
-    print(f"Host: {host}")
+    api_key = sys.argv[1]
+    organization_id = sys.argv[2] if len(sys.argv) > 2 else None
     
-    # Print system info
-    print_system_info()
+    print("\n=== Loggamera API Connection Test ===\n")
     
-    # Check basic socket connection
-    socket_ok = check_socket_connection(host)
+    # Log system information
+    log_system_info()
     
-    # Check TLS connections
-    if socket_ok:
-        tls_ok = check_tls_with_requests(args.url, args.api_key)
+    # Test API key with organizations endpoint
+    print("\nTesting connection to retrieve organizations...")
+    orgs_response = get_organizations(api_key)
     
-    print_section("Results")
-    if socket_ok:
-        print("✓ Basic socket connection: SUCCESS")
-        if tls_ok:
-            print("✓ TLS connection: SUCCESS")
-            print("\nYour system can successfully connect to the Loggamera API!")
-        else:
-            print("✗ TLS connection: FAILED")
-            print("\nYour system can connect to the server but has TLS issues.")
-            print("This might be due to:")
-            print("- Outdated SSL/TLS libraries")
-            print("- Missing CA certificates")
-            print("- Firewall blocking TLS negotiation")
+    if not orgs_response:
+        print("❌ Failed to retrieve organizations. Check the logs for details.")
+        sys.exit(1)
+    
+    print("✅ Successfully connected to Loggamera API!")
+    
+    # Extract organizations
+    if "Data" in orgs_response and "Organizations" in orgs_response["Data"]:
+        organizations = orgs_response["Data"]["Organizations"]
+        print(f"\nFound {len(organizations)} organizations:")
+        
+        for i, org in enumerate(organizations):
+            print(f"  {i+1}. {org.get('Name', 'Unknown')} (ID: {org.get('Id', 'Unknown')})")
+        
+        # If user didn't provide an organization ID, use the first one
+        if not organization_id and organizations:
+            organization_id = organizations[0]["Id"]
+            print(f"\nUsing organization ID: {organization_id}")
     else:
-        print("✗ Basic socket connection: FAILED")
-        print("\nYour system cannot connect to the Loggamera server.")
-        print("This might be due to:")
-        print("- Network connectivity issues")
-        print("- Firewall blocking outbound connections")
-        print("- DNS resolution problems")
-
+        print("No organizations found in the response.")
+        if not organization_id:
+            print("You must specify an organization ID manually.")
+            sys.exit(1)
+    
+    # Test API key with devices endpoint
+    print("\nTesting connection to retrieve devices...")
+    devices_response = get_devices(api_key, organization_id)
+    
+    if not devices_response:
+        print("❌ Failed to retrieve devices. Check the logs for details.")
+        sys.exit(1)
+    
+    # Extract devices
+    if "Data" in devices_response and "Devices" in devices_response["Data"]:
+        devices = devices_response["Data"]["Devices"]
+        print(f"\n✅ Successfully retrieved {len(devices)} devices:")
+        
+        for i, device in enumerate(devices):
+            device_name = device.get("Name", "Unknown")
+            device_id = device.get("Id", "Unknown")
+            device_type = device.get("Type", "Unknown")
+            print(f"  {i+1}. {device_name} (ID: {device_id}, Type: {device_type})")
+    else:
+        print("No devices found in the response.")
+    
+    print("\n=== Connection Test Complete ===")
+    print("\nIf you had any issues, check the logs for details.")
+    print("You can also try running the diagnose_tls.sh script to diagnose and fix SSL/TLS issues.")
 
 if __name__ == "__main__":
     main()
