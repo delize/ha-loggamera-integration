@@ -4,12 +4,12 @@
   "config_flow": true,
   "documentation": "https://github.com/delize/ha-loggamera-integration",
   "issue_tracker": "https://github.com/delize/ha-loggamera-integration/issues",
-  "requirements": ["requests>=2.25.0"],
+  "requirements": ["requests>=2.25.0", "certifi>=2025.04.26"],
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
   "codeowners": ["@delize"],
-  "version": "0.1.1",
+  "version": "0.1.2",
   "iot_class": "cloud_polling"
 }
