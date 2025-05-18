@@ -17,8 +17,8 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfVolume,
     PERCENTAGE,
-    VOLUME_CUBIC_METERS,
 )
 
 from .const import (
@@ -53,8 +53,8 @@ UNIT_MAP = {
     "°C": UnitOfTemperature.CELSIUS,
     "C": UnitOfTemperature.CELSIUS,
     "%": PERCENTAGE,
-    "m³": VOLUME_CUBIC_METERS,
-    "liters": "liters",
+    "m³": UnitOfVolume.CUBIC_METERS,
+    "liters": UnitOfVolume.LITERS,
     "ppm": "ppm",
 }
 
