@@ -13,7 +13,6 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.const import Platform
 
 from .api import LoggameraAPI, LoggameraAPIError
 from .const import (
@@ -73,17 +72,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error(f"Failed to connect to Loggamera API: {err}")
         raise ConfigEntryNotReady(f"Failed to connect to Loggamera API: {err}")
     
+    # Define the update method
+    async def async_update_data():
+        """Fetch data from Loggamera API."""
+        try:
+            # Get devices
+            devices_response = await hass.async_add_executor_job(api.get_devices)
+            if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
+                raise UpdateFailed("Invalid device response format")
+            
+            devices = devices_response["Data"]["Devices"]
+            
+            # Get scenarios
+            scenarios = []
+            try:
+                scenarios_response = await hass.async_add_executor_job(api.get_scenarios)
+                if "Data" in scenarios_response and "Scenarios" in scenarios_response["Data"]:
+                    scenarios = scenarios_response["Data"]["Scenarios"]
+            except LoggameraAPIError as err:
+                _LOGGER.warning(f"Failed to get scenarios: {err}")
+            
+            # Get device data
+            device_data = {}
+            for device in devices:
+                device_id = device["Id"]
+                device_type = device["Class"]
+                
+                try:
+                    data = await hass.async_add_executor_job(
+                        api.get_device_data, device_id, device_type
+                    )
+                    if data:
+                        device_data[device_id] = data
+                except LoggameraAPIError as err:
+                    _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
+            
+            return {
+                "devices": devices,
+                "scenarios": scenarios,
+                "device_data": device_data,
+            }
+        except Exception as err:
+            _LOGGER.error(f"Error fetching data: {err}")
+            raise UpdateFailed(f"Error fetching data: {err}")
+    
     # Create update coordinator
-    coordinator = LoggameraDataUpdateCoordinator(
+    coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        api=api,
-        name="loggamera",
+        name=DOMAIN,
+        update_method=async_update_data,
         update_interval=timedelta(seconds=scan_interval),
     )
     
-    # Initial update - this will raise ConfigEntryNotReady if it fails
-    await coordinator.async_config_entry_first_update()
+    # Fetch initial data
+    await coordinator.async_refresh()
     
     # Store API client and coordinator in hass.data
     hass.data[DOMAIN][entry.entry_id] = {
@@ -117,124 +160,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Clean up if unload was successful
     if unload_ok:
         del hass.data[DOMAIN][entry.entry_id]
-        
-        # Remove the entire domain if it's empty
-        if not hass.data[DOMAIN]:
-            del hass.data[DOMAIN]
     
     return unload_ok
-
-class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching data from the API."""
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        logger: logging.Logger,
-        api: LoggameraAPI,
-        name: str,
-        update_interval: timedelta,
-    ) -> None:
-        """Initialize the coordinator."""
-        super().__init__(
-            hass,
-            logger,
-            name=name,
-            update_interval=update_interval,
-        )
-        self.api = api
-        self._update_timestamps = {}
-        self._data_age_warnings = {}
-
-    async def _async_update_data(self):
-        """Fetch data from API."""
-        try:
-            # Get devices
-            devices_response = await self.hass.async_add_executor_job(
-                self.api.get_devices
-            )
-            
-            if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
-                raise UpdateFailed("Failed to fetch devices from API")
-            
-            devices = devices_response["Data"]["Devices"]
-            
-            if not devices:
-                self.logger.warning("No devices found in API response")
-            
-            # Get scenarios
-            scenarios_response = await self.hass.async_add_executor_job(
-                self.api.get_scenarios
-            )
-            
-            scenarios = []
-            if "Data" in scenarios_response and "Scenarios" in scenarios_response["Data"]:
-                scenarios = scenarios_response["Data"]["Scenarios"]
-            
-            # Check device data timestamps to warn about stale data
-            for device in devices:
-                device_id = device["Id"]
-                device_type = device["Class"]
-                device_name = device.get("Title", f"{device_type}-{device_id}")
-                
-                # Get device data to check timestamp
-                try:
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_device_data, device_id, device_type
-                    )
-                    
-                    # Check for LogDateTimeUtc timestamp
-                    if "Data" in device_data and "LogDateTimeUtc" in device_data["Data"]:
-                        timestamp = device_data["Data"]["LogDateTimeUtc"]
-                        
-                        # Generate a unique key for this device
-                        device_key = f"{device_type}_{device_id}"
-                        
-                        # Check if we have seen this device before
-                        if device_key in self._update_timestamps:
-                            last_timestamp = self._update_timestamps[device_key]
-                            
-                            # If timestamp has changed, log it
-                            if last_timestamp != timestamp:
-                                self.logger.info(
-                                    f"Device {device_name} data updated: {last_timestamp} -> {timestamp}"
-                                )
-                                self._update_timestamps[device_key] = timestamp
-                                
-                                # Reset the warning flag since we have fresh data
-                                if device_key in self._data_age_warnings:
-                                    del self._data_age_warnings[device_key]
-                            else:
-                                # If the data hasn't changed, check how many updates we've gone without changes
-                                if device_key not in self._data_age_warnings:
-                                    self._data_age_warnings[device_key] = 1
-                                else:
-                                    self._data_age_warnings[device_key] += 1
-                                
-                                # Warn if we've gone 3 or more updates without changes
-                                if self._data_age_warnings[device_key] >= 3:
-                                    self.logger.warning(
-                                        f"Device {device_name} data hasn't updated in {self._data_age_warnings[device_key]} checks. "
-                                        f"Last update was at {timestamp}. "
-                                        f"This is normal for PowerMeter devices which update ~every 30 minutes."
-                                    )
-                                    # Only warn every 3rd check to avoid log spam
-                                    self._data_age_warnings[device_key] = 0
-                        else:
-                            # First time seeing this device
-                            self._update_timestamps[device_key] = timestamp
-                            self.logger.info(f"Device {device_name} initial data timestamp: {timestamp}")
-                    
-                except LoggameraAPIError as err:
-                    self.logger.error(f"Failed to get data for device {device_name}: {err}")
-            
-            # Return all data
-            return {
-                "devices": devices,
-                "scenarios": scenarios,
-            }
-            
-        except LoggameraAPIError as err:
-            raise UpdateFailed(f"Error communicating with API: {err}")
-        except Exception as err:
-            raise UpdateFailed(f"Unexpected error: {err}")

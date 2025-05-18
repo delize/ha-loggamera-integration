@@ -14,11 +14,11 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.const import (
-    UnitOfTemperature,
-    UnitOfEnergy,
-    UnitOfPower,
+    TEMP_CELSIUS,
+    ENERGY_KILO_WATT_HOUR,
+    POWER_KILO_WATT,
     PERCENTAGE,
-    UnitOfVolume,
+    VOLUME_CUBIC_METERS,
 )
 
 from .const import (
@@ -47,14 +47,13 @@ DEVICE_CLASS_MAP = {
 
 # Map Loggamera units to HA units
 UNIT_MAP = {
-    "kW": UnitOfPower.KILO_WATT,
-    "kWh": UnitOfEnergy.KILO_WATT_HOUR,
-    "Wh": UnitOfEnergy.WATT_HOUR,
-    "°C": UnitOfTemperature.CELSIUS,
-    "C": UnitOfTemperature.CELSIUS,
+    "kW": POWER_KILO_WATT,
+    "kWh": ENERGY_KILO_WATT_HOUR,
+    "Wh": ENERGY_KILO_WATT_HOUR,  # We'll convert
+    "°C": TEMP_CELSIUS,
+    "C": TEMP_CELSIUS,
     "%": PERCENTAGE,
-    "m³": UnitOfVolume.CUBIC_METERS,
-    "liters": UnitOfVolume.LITERS,
+    "m³": VOLUME_CUBIC_METERS,
     "ppm": "ppm",
 }
 
@@ -72,9 +71,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """Set up Loggamera sensors based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
-    
-    # Wait for a successful update before proceeding
-    await coordinator.async_config_entry_first_update()
     
     entities = []
     
@@ -167,10 +163,8 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self._unit_type = value_data.get("UnitType", "")
         self._unit = value_data.get("UnitPresentation", "")
         
-        # Last value and timestamp for tracking updates
+        # Last value
         self._last_value = None
-        self._last_update_time = None
-        self._stale_data_reported = False
         
         # Entity attributes
         self._attr_unique_id = f"loggamera_{device_id}_{self._value_name}"
@@ -183,7 +177,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self._attr_state_class = STATE_CLASS_MAP.get(self._value_name)
         
         # Set unit of measurement
-        self._attr_native_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
+        self._attr_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
         
         # Device info
         self._attr_device_info = DeviceInfo(
@@ -229,54 +223,30 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         return None
     
     @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        if self.coordinator.last_update_success:
-            # For PowerMeter devices, check if data is stale
-            if self.device_type == "PowerMeter" and self._last_update_time:
-                now = dt_util.utcnow()
-                # If no update in over 2 hours, mark as unavailable and log warning once
-                if (now - self._last_update_time).total_seconds() > 7200 and not self._stale_data_reported:
-                    _LOGGER.warning(
-                        f"PowerMeter device {self._device_name} data may be stale - last update: {self._last_update_time.isoformat()}"
-                    )
-                    self._stale_data_reported = True
-                    return False
-            return True
-        return False
-    
-    @property
-    def native_value(self):
+    def state(self):
         """Return the state of the sensor."""
         try:
-            # Find the current device in updated data
-            for device in self.coordinator.data.get("devices", []):
-                if device["Id"] == self.device_id:
-                    # Get device data
-                    device_data = None
-                    for device_id, data in self.coordinator.data.get("device_data", {}).items():
-                        if int(device_id) == self.device_id:
-                            device_data = data
-                            break
-                    
-                    if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
-                        return self._last_value
-                    
-                    # Track data update timestamp for PowerMeter
-                    if self.device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-                        try:
-                            timestamp = datetime.fromisoformat(device_data["Data"]["LogDateTimeUtc"].replace('Z', '+00:00'))
-                            if self._last_update_time != timestamp:
-                                self._last_update_time = timestamp
-                                self._stale_data_reported = False  # Reset stale data flag on new data
-                        except (ValueError, AttributeError):
-                            pass
-                    
-                    # Find the value
-                    for value in device_data["Data"]["Values"]:
-                        if value.get("Name") == self._value_name:
-                            self._last_value = value.get("Value")
-                            return self._last_value
+            if "device_data" in self.coordinator.data:
+                # If we have a device_data dictionary in coordinator data
+                for device_id, data in self.coordinator.data.get("device_data", {}).items():
+                    if int(device_id) == self.device_id:
+                        if "Data" in data and "Values" in data["Data"]:
+                            for value in data["Data"]["Values"]:
+                                if value.get("Name") == self._value_name:
+                                    self._last_value = value.get("Value")
+                                    return self._last_value
+            else:
+                # Try to get device data directly if not in coordinator data
+                for device in self.coordinator.data.get("devices", []):
+                    if device["Id"] == self.device_id:
+                        device_data = self.hass.async_add_executor_job(
+                            self.api.get_device_data, self.device_id, self.device_type
+                        )
+                        if "Data" in device_data and "Values" in device_data["Data"]:
+                            for value in device_data["Data"]["Values"]:
+                                if value.get("Name") == self._value_name:
+                                    self._last_value = value.get("Value")
+                                    return self._last_value
             
             return self._last_value
         except Exception as err:
@@ -286,13 +256,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
         """Return additional state attributes."""
-        attributes = {
+        return {
             "loggamera_name": self._value_name,
             "loggamera_type": self._value_type,
         }
-        
-        # For PowerMeter devices, include timestamp of last data update
-        if self.device_type == "PowerMeter" and self._last_update_time:
-            attributes["last_data_update"] = self._last_update_time.isoformat()
-        
-        return attributes

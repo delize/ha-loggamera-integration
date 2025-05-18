@@ -1,8 +1,10 @@
 """Constants for the Loggamera integration."""
+from homeassistant.const import Platform
 
+# Domain
 DOMAIN = "loggamera"
 
-# Configuration constants
+# Configuration
 CONF_API_KEY = "api_key"
 CONF_ORGANIZATION_ID = "organization_id"
 CONF_SCAN_INTERVAL = "scan_interval"
@@ -10,10 +12,8 @@ CONF_SCAN_INTERVAL = "scan_interval"
 # Default 20 minutes (1200 seconds) - optimized for PowerMeter which typically updates every ~30 minutes
 DEFAULT_SCAN_INTERVAL = 1200
 
-# API constants
+# API URLs
 API_URL = "https://platform.loggamera.se/api/v2"
-
-# API endpoints
 API_ENDPOINT_ORGANIZATIONS = "Organizations"
 API_ENDPOINT_DEVICES = "Devices"
 API_ENDPOINT_POWER_METER = "PowerMeter"
@@ -27,20 +27,13 @@ API_ENDPOINT_CAPABILITIES = "Capabilities"
 API_ENDPOINT_SCENARIOS = "Scenarios"
 API_ENDPOINT_EXECUTE_SCENARIO = "ExecuteScenario"
 
-# Device types
-DEVICE_TYPE_POWER_METER = "PowerMeter"
-DEVICE_TYPE_ROOM_SENSOR = "RoomSensor"
-DEVICE_TYPE_WATER_METER = "WaterMeter"
-DEVICE_TYPE_HEAT_PUMP = "HeatPump"
-DEVICE_TYPE_COOLING_UNIT = "CoolingUnit"
+# Platforms
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH]
 
-# Attribute keys
-ATTR_DEVICE_TYPE = "device_type"
-ATTR_DURATION_MINUTES = "duration_minutes"
-
-# Platform definitions
-PLATFORMS = [
-    "sensor",
-    "binary_sensor",
-    "switch",
-]
+# Sensor types
+SENSOR_ENERGY = "energy"
+SENSOR_POWER = "power"
+SENSOR_TEMPERATURE = "temperature"
+SENSOR_HUMIDITY = "humidity"
+SENSOR_WATER = "water"
+SENSOR_VALUE = "value"
