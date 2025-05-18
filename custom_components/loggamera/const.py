@@ -1,31 +1,46 @@
 """Constants for the Loggamera integration."""
 
 DOMAIN = "loggamera"
-BASE_API_URL = "https://platform.loggamera.se/api/v2"
 
-# API Endpoints
-ORGANIZATIONS_ENDPOINT = "Organizations"
-DEVICES_ENDPOINT = "Devices"
-POWER_METER_ENDPOINT = "PowerMeter"
-ROOM_SENSOR_ENDPOINT = "RoomSensor"
-GENERIC_DEVICE_ENDPOINT = "GenericDevice"
-WATER_METER_ENDPOINT = "WaterMeter"
-COOLING_UNIT_ENDPOINT = "CoolingUnit"
-HEAT_PUMP_ENDPOINT = "HeatPump"
-RAW_DATA_ENDPOINT = "RawData"
-GET_CAPABILITIES_ENDPOINT = "GetCapabilities"
-SET_PROPERTY_ENDPOINT = "SetProperty"
-SCENARIOS_ENDPOINT = "Scenarios"
-USER_ACCESS_ENDPOINT = "UserAccess"
-EXECUTE_SCENARIO_ENDPOINT = "ExecuteScenarioAsync"
-
-# Configuration
+# Configuration constants
 CONF_API_KEY = "api_key"
+CONF_ORGANIZATION_ID = "organization_id"
 CONF_SCAN_INTERVAL = "scan_interval"
-DEFAULT_SCAN_INTERVAL = 60  # seconds
 
-# Entity categories
-CATEGORY_POWER = "power"
-CATEGORY_WATER = "water"
-CATEGORY_ROOM = "room"
-CATEGORY_CLIMATE = "climate"
+# Default 20 minutes (1200 seconds) - optimized for PowerMeter which typically updates every ~30 minutes
+DEFAULT_SCAN_INTERVAL = 1200
+
+# API constants
+API_URL = "https://platform.loggamera.se/api/v2"
+
+# API endpoints
+API_ENDPOINT_ORGANIZATIONS = "Organizations"
+API_ENDPOINT_DEVICES = "Devices"
+API_ENDPOINT_POWER_METER = "PowerMeter"
+API_ENDPOINT_ROOM_SENSOR = "RoomSensor"
+API_ENDPOINT_GENERIC_DEVICE = "GenericDevice"
+API_ENDPOINT_WATER_METER = "WaterMeter"
+API_ENDPOINT_COOLING_UNIT = "CoolingUnit"
+API_ENDPOINT_HEAT_PUMP = "HeatPump"
+API_ENDPOINT_RAW_DATA = "RawData"
+API_ENDPOINT_CAPABILITIES = "Capabilities"
+API_ENDPOINT_SCENARIOS = "Scenarios"
+API_ENDPOINT_EXECUTE_SCENARIO = "ExecuteScenario"
+
+# Device types
+DEVICE_TYPE_POWER_METER = "PowerMeter"
+DEVICE_TYPE_ROOM_SENSOR = "RoomSensor"
+DEVICE_TYPE_WATER_METER = "WaterMeter"
+DEVICE_TYPE_HEAT_PUMP = "HeatPump"
+DEVICE_TYPE_COOLING_UNIT = "CoolingUnit"
+
+# Attribute keys
+ATTR_DEVICE_TYPE = "device_type"
+ATTR_DURATION_MINUTES = "duration_minutes"
+
+# Platform definitions
+PLATFORMS = [
+    "sensor",
+    "binary_sensor",
+    "switch",
+]

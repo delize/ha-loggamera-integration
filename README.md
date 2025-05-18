@@ -1,95 +1,134 @@
 # Loggamera Integration for Home Assistant
 
-This is a custom component for Home Assistant that integrates with Loggamera, a tool that monitors electricity, water, and other utilities in your home.
+This integration allows you to monitor and control your Loggamera devices in Home Assistant. It provides sensors for various device types, including PowerMeter, RoomSensor, and more.
 
 ## Features
 
-- Monitor power consumption
-- Monitor water usage
-- Monitor room temperature and humidity
-- Execute scenarios
-- Set device properties
-- Get alerts for device alarms
+- Supports PowerMeter devices for energy monitoring
+- Shows power and energy consumption
+- Supports alarm states as binary sensors
+- Can execute scenarios via switches
+- Automatic fallback mechanisms for different types of API access
 
 ## Installation
 
-For detailed installation instructions, see [INSTALL.md](docs/INSTALL.md).
+### HACS (Recommended)
 
-### Quick Start
+1. Make sure [HACS](https://hacs.xyz/) is installed in your Home Assistant instance.
+2. Add this repository URL as a custom repository in HACS.
+3. Install the integration through HACS.
+4. Restart Home Assistant.
 
-#### Manual Installation
+### Manual Installation
 
-1. Download the `loggamera` folder from this repository.
-2. Copy the folder to your Home Assistant configuration directory under `custom_components/`.
-3. Restart Home Assistant.
-
-#### Installation via HACS (Home Assistant Community Store)
-
-1. Add this repository to HACS as a custom repository.
-2. Search for "Loggamera" in HACS and install it.
+1. Download the latest release.
+2. Copy the `loggamera` directory from the `custom_components` directory to your Home Assistant's `custom_components` directory.
 3. Restart Home Assistant.
 
 ## Configuration
 
-1. Go to Home Assistant Settings > Devices & Services.
-2. Click the "+ Add Integration" button.
-3. Search for "Loggamera" and select it.
-4. Enter your API key.
+1. In Home Assistant, go to **Configuration** > **Integrations** and click the "+" button.
+2. Search for "Loggamera" and select it.
+3. Enter your API key and follow the setup instructions.
 
-## Services
+## Update Frequency and Polling
 
-The integration provides the following services:
+### PowerMeter Devices
 
-### `loggamera.execute_scenario`
+The Loggamera PowerMeter endpoint typically updates data approximately every 30 minutes. Setting a more frequent polling interval will not result in more frequent data updates.
 
-Execute a scenario in Loggamera.
+The integration defaults to polling the API every 20 minutes (1200 seconds) which is optimized for:
 
-**Parameters:**
+- Ensuring timely updates (within ~10 minutes of new data being available)
+- Reducing unnecessary API calls
+- Avoiding excessive logging of "no changes" messages
 
-- `scenario_id` (required): The ID of the scenario to execute.
-- `duration_minutes` (optional): Duration in minutes for the scenario.
-- `entry_id` (optional): Entry ID of the Loggamera integration (needed only if you have multiple instances).
+You can adjust the polling interval in the integration's options, but be aware that:
 
-## Device Types Supported
+- Setting it too low (< 10 minutes) will result in many unnecessary API calls
+- Setting it too high (> 30 minutes) may cause you to miss some updates
 
-The integration supports multiple device types:
+### Update Patterns
 
-- **PowerMeter**: Monitors electricity usage and power consumption
-- **WaterMeter**: Tracks water consumption
-- **RoomSensor**: Provides temperature and humidity readings
-- **GenericDevice**: Supports various sensors and capabilities
-- **CoolingUnit**: Monitors cooling system status
-- **HeatPump**: Provides heat pump status and controls
+If you notice that your data isn't updating as expected, you can use the diagnostic tools included in this repository to monitor the actual update patterns of your specific PowerMeter device.
 
-## Data Refresh
+## Diagnostic Tools
 
-By default, data is refreshed every 60 seconds. You can change this interval in the integration options.
+Several diagnostic tools are included to help troubleshoot and optimize your Loggamera integration:
 
-## TLS/SSL Information
+### PowerMeter Update Monitor
 
-This integration uses secure HTTPS connections to connect to the Loggamera API. If you experience connection issues, please see our [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
-
-### Diagnostic Tools
-
-The integration includes a diagnostic script in the `tools` directory:
+This tool monitors your PowerMeter device to track when updates occur and recommends an optimal polling interval:
 
 ```bash
-python test_connection.py YOUR_API_KEY
+python tools/monitor_powermeter_updates.py --api-key 05DEE511FE25F65555556JKHH87562 --device-id 9729 --interval 300 --duration 24
 ```
 
-This will provide detailed information about your system's ability to connect to the Loggamera API.
+This will monitor updates for 24 hours with a 5-minute polling interval and provide statistics and recommendations.
+
+### Basic PowerMeter Output
+
+For a quick check of current PowerMeter data:
+
+```bash
+python tools/basic_powermeter_output.py --api-key 05DEE511FE25F65555556JKHH87562 --device-id 9729
+```
+
+To continuously poll for updates:
+
+```bash
+python tools/basic_powermeter_output.py --api-key 05DEE511FE25F65555556JKHH87562 --device-id 9729 --poll 300
+```
+
+### Home Assistant Sensor Configuration Helper
+
+Generates YAML configuration snippets for your sensors:
+
+```bash
+python tools/ha_sensor_config_helper.py 05DEE511FE25F65555556JKHH87562 9729
+```
 
 ## Troubleshooting
 
-If you encounter issues with the integration, please refer to our detailed [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
+### Stale Data
 
-### Common Issues
+If you see warnings about stale data in your logs, this typically means that the PowerMeter device hasn't sent new data to the Loggamera backend for an extended period (>2 hours). This could indicate:
 
-- **Cannot connect to Loggamera API**: Check your API key and internet connection.
-- **No devices found**: Make sure your devices are properly set up in the Loggamera platform.
-- **Missing entity values**: Some devices might not report all values. Check the device in the Loggamera platform.
-- **TLS/SSL errors**: The integration requires TLS 1.2 or higher. See the troubleshooting guide for more details.
+1. Network connectivity issues with your PowerMeter device
+2. Issues with the Loggamera cloud service
+3. Configuration problems with your PowerMeter device
+
+The integration will mark sensors as unavailable if data hasn't been updated for over 2 hours.
+
+### API Connection Issues
+
+If you're experiencing API connection issues:
+
+1. Verify your API key is correct
+2. Check your internet connection
+3. Confirm the Loggamera service is operational
+4. Ensure your Home Assistant instance can reach the Loggamera API (platform.loggamera.se)
+
+## Device Support
+
+The integration currently supports the following device types:
+
+- PowerMeter
+- RoomSensor
+- WaterMeter
+- CoolingUnit
+- HeatPump
+
+For other device types, the integration attempts to use the RawData or GenericDevice endpoints as fallbacks.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This integration is licensed under the MIT License.
+
+## Disclaimer
+
+This integration is not affiliated with, endorsed by, or connected to Loggamera.

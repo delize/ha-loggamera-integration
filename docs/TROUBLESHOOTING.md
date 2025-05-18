@@ -1,105 +1,167 @@
-# Troubleshooting Guide for Loggamera Integration
+# Loggamera Integration Troubleshooting
 
-This guide helps resolve common issues with the Loggamera Home Assistant integration.
+This document provides solutions for common issues that might occur when using the Loggamera integration with Home Assistant.
 
-## SSL/TLS Connection Issues
+## Table of Contents
 
-The most common problems are related to SSL/TLS connections to the Loggamera API server.
+- [SSL/TLS Certificate Issues](#ssltls-certificate-issues)
+- [Connection Issues](#connection-issues)
+- [Access Denied Errors](#access-denied-errors)
+- [Missing Devices/Entities](#missing-devicesentities)
+- [Data Update Issues](#data-update-issues)
+- [Docker-specific Issues](#docker-specific-issues)
 
-### TLSv1 Alert Internal Error
+## SSL/TLS Certificate Issues
 
-**Error message:**
+SSL/TLS certificate issues are common, especially in Docker environments where certificate authorities might not be properly installed.
 
-```text
-Error communicating with Loggamera API: HTTPSConnectionPool(host='platform.loggamera.se', port=443): Max retries exceeded with url: /Api/v2/Organizations (Caused by SSLError(SSLError(1, '[SSL: TLSV1_ALERT_INTERNAL_ERROR] tlsv1 alert internal error (_ssl.c:1028)')))
+### Certificate Issue Symptoms
+
+- Error messages containing "CERTIFICATE_VERIFY_FAILED"
+- Error messages about SSL/TLS verification
+- Integration shows error "Cannot connect" during setup
+
+### Certificate Issue Solutions
+
+#### 1. Run the Diagnostic Script
+
+The integration provides a diagnostic script that can help identify and fix certificate issues:
+
+```bash
+docker exec -it homeassistant bash -c "curl -s https://raw.githubusercontent.com/delize/ha-loggamera-integration/main/tools/diagnose_tls.sh | bash"
 ```
 
-**Possible solutions:**
+#### 2. Update CA Certificates
 
-1. **Test connection using the provided script:**
+In Docker, you may need to update the CA certificates:
 
-   ```bash
-   cd tools
-   python test_connection.py YOUR_API_KEY
-   ```
+```bash
+docker exec -it homeassistant bash -c "apt-get update && apt-get install -y ca-certificates"
+```
 
-2. **Check TLS compatibility:**
-   The Loggamera API might require a specific version of TLS. You can test which versions work using OpenSSL:
+#### 3. Update Certifi
 
-   ```bash
-   openssl s_client -connect platform.loggamera.se:443 -tls1_2
-   ```
+Make sure the Python certifi package is up-to-date:
 
-3. **Ensure Home Assistant has up-to-date CA certificates:**
-   - If running in Docker, make sure your container has current CA certificates
-   - If running on a Linux system: `sudo apt-get update && sudo apt-get install ca-certificates`
+```bash
+docker exec -it homeassistant bash -c "pip install --upgrade certifi"
+```
 
-4. **Network issues:**
-   - Check if your network firewall is blocking the connection
-   - Try from a different network if possible
+#### 4. Custom CA Bundle
 
-## API Key Issues
+Create a custom CA certificate bundle:
 
-If you're getting authentication errors:
+```bash
+docker exec -it homeassistant bash -c "mkdir -p /etc/ssl/certs/custom && cp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/custom/cacert.pem"
+```
 
-1. **Verify your API key:**
-   - Make sure you've copied the entire API key correctly
-   - Check for trailing spaces or line breaks
+Then, you'll need to modify the integration's API client to use this custom bundle.
 
-2. **API key permissions:**
-   - Your API key must have the right permissions for the organizations you want to access
-   - Check in the Loggamera platform if your API key has the correct access level
+## Connection Issues
 
-## General Connectivity Issues
+If you're having trouble connecting to the Loggamera API:
 
-1. **Network connectivity:**
-   - Check if you can access `https://platform.loggamera.se` from the device running Home Assistant
-   - Verify that outbound connections to port 443 are allowed
+### Connection Issue Symptoms
 
-2. **DNS issues:**
-   - Try adding this line to your hosts file: `platform.loggamera.se IP_ADDRESS`
-   - Replace IP_ADDRESS with the actual IP of the server (you can find it using: `nslookup platform.loggamera.se`)
+- "Cannot connect" errors during integration setup
+- Timeout errors in logs
 
-## No Devices Showing
+### Connection Issue Solutions
 
-If you've connected successfully but don't see any devices:
+1. **Check Internet Connection**: Ensure your Home Assistant instance has proper internet access.
 
-1. **Check organization ID:**
-   - The integration will try to discover all devices visible to your API key
-   - If you have multiple organizations, it might not be finding the right one
-   - Try setting organization_id manually in configuration.yaml if needed
+2. **Check Firewall Settings**: Make sure outbound connections to `platform.loggamera.se` on port 443 are allowed.
 
-2. **API limitations:**
-   - Check if there are any limitations on your API key in the Loggamera platform
+3. **DNS Resolution**: Verify that DNS resolution is working correctly.
 
-## Logs and Diagnostics
+```bash
+docker exec -it homeassistant bash -c "ping platform.loggamera.se"
+docker exec -it homeassistant bash -c "nslookup platform.loggamera.se"
+```
 
-To enable debug logging for the integration:
+## Access Denied Errors
 
-1. Add this to your configuration.yaml:
+If you're seeing "access denied" errors in the logs:
 
-   ```yaml
-   logger:
-     default: warning
-     logs:
-       custom_components.loggamera: debug
-   ```
+### Access Denied Symptoms
 
-2. Restart Home Assistant
+- Log entries with "API error: {'Message': 'access denied'}"
+- Integration connects but doesn't show any devices
 
-3. Check the logs for detailed error messages:
-   - Home Assistant web interface: Developer Tools > Logs
-   - Or in your HA log file location
+### Access Denied Solutions
 
-## Contact Support
+1. **API Key**: Verify your API key is correct and has proper permissions.
 
-If none of these solutions work, collect the following information:
+2. **Organization ID**: Your API key might be tied to a specific organization. Try specifying the organization ID in the integration configuration.
 
-1. Debug logs from Home Assistant
-2. Output from the test_connection.py script
-3. Information about your Home Assistant installation (version, how it's installed)
+3. **Check API Key Permissions**: Make sure your API key has access to the devices and data you're trying to access.
 
-Then:
+4. **API Key Revocation**: If your API key was revoked or expired, you'll need to get a new one.
 
-1. Open an issue on our GitHub repository
-2. Or contact Loggamera support at [support@loggamera.se](mailto:support@loggamera.se)
+5. **Reset the Integration**: Try removing and re-adding the integration with a correct API key.
+
+## Missing Devices/Entities
+
+If you've successfully connected but don't see your devices:
+
+### Missing Devices Symptoms
+
+- Integration shows as connected, but no devices/entities appear
+- Some devices appear, but others are missing
+
+### Missing Devices Solutions
+
+1. **Wait for Discovery**: Sometimes it can take a few minutes for all devices to be discovered.
+
+2. **Check Device Visibility**: Ensure your devices are visible in the Loggamera platform.
+
+3. **Organization ID**: You might be using the wrong organization. Check if you have access to multiple organizations and specify the correct one.
+
+4. **Restart Home Assistant**: Sometimes a full restart is needed for all entities to appear.
+
+## Data Update Issues
+
+If entities exist but don't update properly:
+
+### Data Update Solutions
+
+1. **Adjust Scan Interval**: Go to the integration options and adjust the scan interval. Default is 60 seconds.
+
+2. **Check API Quotas**: Ensure you haven't exceeded API rate limits.
+
+3. **Device Status**: Verify the devices are active and reporting data to Loggamera.
+
+## Docker-specific Issues
+
+Docker environments can have specific issues related to networking, certificates, and permissions:
+
+### Docker-specific Solutions
+
+1. **Certificate Path**: Docker containers might store certificates in different locations. Use the diagnostic script to identify the correct paths.
+
+2. **Network Mode**: If using host network mode, ensure proper DNS resolution.
+
+3. **Container Rebuilds**: After major Home Assistant updates, you might need to reinstall certificates.
+
+```bash
+docker exec -it homeassistant bash -c "apt-get update && apt-get install -y ca-certificates curl"
+```
+
+## Still Having Issues?
+
+If you're still experiencing problems after trying these solutions:
+
+1. Check the [GitHub Issues](https://github.com/delize/ha-loggamera-integration/issues) to see if others have reported the same problem.
+
+2. Run the diagnostic script and attach the output when reporting issues.
+
+3. Enable debug logging for the integration by adding this to your configuration.yaml:
+
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.loggamera: debug
+```
+
+Then restart Home Assistant and check the logs for more detailed error messages.
