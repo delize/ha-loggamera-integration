@@ -149,6 +149,10 @@ class LoggameraBinarySensor(CoordinatorEntity, BinarySensorEntity):
             for value in values:
                 if value["Name"] == self._value_name:
                     # Convert to boolean
-                    return value["Value"].lower() == "true"
+                    try:
+                        return value["Value"].lower() == "true"
+                    except (AttributeError, ValueError):
+                        _LOGGER.warning(f"Could not convert value '{value['Value']}' to boolean for {self._attr_name}")
+                        return None
                     
         return None

@@ -13,13 +13,17 @@ This is a custom component for Home Assistant that integrates with Loggamera, a 
 
 ## Installation
 
-### Manual Installation
+For detailed installation instructions, see [INSTALL.md](docs/INSTALL.md).
+
+### Quick Start
+
+#### Manual Installation
 
 1. Download the `loggamera` folder from this repository.
 2. Copy the folder to your Home Assistant configuration directory under `custom_components/`.
 3. Restart Home Assistant.
 
-### Installation via HACS (Home Assistant Community Store)
+#### Installation via HACS (Home Assistant Community Store)
 
 1. Add this repository to HACS as a custom repository.
 2. Search for "Loggamera" in HACS and install it.
@@ -61,13 +65,30 @@ The integration supports multiple device types:
 
 By default, data is refreshed every 60 seconds. You can change this interval in the integration options.
 
+## TLS/SSL Information
+
+This integration uses secure HTTPS connections to connect to the Loggamera API. If you experience connection issues, please see our [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
+
+### Diagnostic Tools
+
+The integration includes a diagnostic script in the `tools` directory:
+
+```bash
+python test_connection.py YOUR_API_KEY
+```
+
+This will provide detailed information about your system's ability to connect to the Loggamera API.
+
 ## Troubleshooting
+
+If you encounter issues with the integration, please refer to our detailed [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 
 ### Common Issues
 
 - **Cannot connect to Loggamera API**: Check your API key and internet connection.
 - **No devices found**: Make sure your devices are properly set up in the Loggamera platform.
 - **Missing entity values**: Some devices might not report all values. Check the device in the Loggamera platform.
+- **TLS/SSL errors**: The integration requires TLS 1.2 or higher. See the troubleshooting guide for more details.
 
 ## License
 
