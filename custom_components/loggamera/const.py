@@ -1,7 +1,7 @@
 """Constants for the Loggamera integration."""
 
 DOMAIN = "loggamera"
-BASE_API_URL = "https://api.loggamera.com/Api/v2"
+BASE_API_URL = "https://platform.loggamera.se/api/v2"
 
 # API Endpoints
 ORGANIZATIONS_ENDPOINT = "Organizations"

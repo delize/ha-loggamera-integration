@@ -101,6 +101,7 @@ def register_services(hass):
                 scenario_id,
                 duration_minutes,
             )
+            _LOGGER.info(f"Successfully executed scenario {scenario_id}")
         except LoggameraAPIError as error:
             _LOGGER.error(f"Failed to execute scenario: {error}")
     
@@ -127,57 +128,75 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Update data."""
         try:
+            _LOGGER.debug("Starting data update cycle")
+            
             # Get organizations
-            organizations_response = await self.hass.async_add_executor_job(
-                self.api.get_organizations
-            )
-            if organizations_response.get("Data") and organizations_response["Data"].get("Organizations"):
-                self.organizations = {
-                    org["Id"]: org for org in organizations_response["Data"]["Organizations"]
-                }
+            try:
+                organizations_response = await self.hass.async_add_executor_job(
+                    self.api.get_organizations
+                )
+                if organizations_response.get("Data") and organizations_response["Data"].get("Organizations"):
+                    self.organizations = {
+                        org["Id"]: org for org in organizations_response["Data"]["Organizations"]
+                    }
+                    _LOGGER.debug(f"Retrieved {len(self.organizations)} organizations")
+            except LoggameraAPIError as err:
+                _LOGGER.error(f"Failed to get organizations: {err}")
+                # Continue with other requests even if this one fails
                 
             # Get devices
-            devices_response = await self.hass.async_add_executor_job(
-                self.api.get_devices
-            )
-            if devices_response.get("Data") and devices_response["Data"].get("Devices"):
-                self.devices = {
-                    device["Id"]: device for device in devices_response["Data"]["Devices"]
-                }
+            try:
+                devices_response = await self.hass.async_add_executor_job(
+                    self.api.get_devices
+                )
+                if devices_response.get("Data") and devices_response["Data"].get("Devices"):
+                    self.devices = {
+                        device["Id"]: device for device in devices_response["Data"]["Devices"]
+                    }
+                    _LOGGER.debug(f"Retrieved {len(self.devices)} devices")
+            except LoggameraAPIError as err:
+                _LOGGER.error(f"Failed to get devices: {err}")
+                raise UpdateFailed(f"Failed to get device list: {err}")
                 
             # Update data for each device
             for device_id, device in self.devices.items():
                 device_class = device.get("Class")
                 device_data = None
                 
-                if device_class == "PowerMeter":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_power_meter_data, device_id
-                    )
-                elif device_class == "WaterMeter":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_water_meter_data, device_id
-                    )
-                elif device_class == "RoomSensor":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_room_sensor_data, device_id
-                    )
-                elif device_class == "GenericDevice":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_generic_device_data, device_id
-                    )
-                elif device_class == "CoolingUnit":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_cooling_unit_data, device_id
-                    )
-                elif device_class == "HeatPump":
-                    device_data = await self.hass.async_add_executor_job(
-                        self.api.get_heat_pump_data, device_id
-                    )
+                try:
+                    if device_class == "PowerMeter":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_power_meter_data, device_id
+                        )
+                    elif device_class == "WaterMeter":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_water_meter_data, device_id
+                        )
+                    elif device_class == "RoomSensor":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_room_sensor_data, device_id
+                        )
+                    elif device_class == "GenericDevice":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_generic_device_data, device_id
+                        )
+                    elif device_class == "CoolingUnit":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_cooling_unit_data, device_id
+                        )
+                    elif device_class == "HeatPump":
+                        device_data = await self.hass.async_add_executor_job(
+                            self.api.get_heat_pump_data, device_id
+                        )
+                    
+                    if device_data:
+                        self.device_data[device_id] = device_data
+                        _LOGGER.debug(f"Retrieved data for device {device_id} ({device_class})")
+                except LoggameraAPIError as err:
+                    _LOGGER.error(f"Failed to get data for device {device_id} ({device_class}): {err}")
+                    # Continue with other devices even if one fails
                 
-                if device_data:
-                    self.device_data[device_id] = device_data
-                
+            _LOGGER.debug("Data update cycle completed")
             return {
                 "devices": self.devices,
                 "device_data": self.device_data,
