@@ -10,6 +10,6 @@
   "homekit": {},
   "dependencies": [],
   "codeowners": ["@delize"],
-  "version": "0.1.2",
+  "version": "0.1.5",
   "iot_class": "cloud_polling"
 }
