@@ -65,10 +65,14 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
-    def _make_request(self, endpoint, data):
+    def _make_request(self, endpoint, data=None):
         """Make a request to the Loggamera API."""
         url = f"{API_URL}/{endpoint}"
         headers = {"Content-Type": "application/json"}
+        
+        # Initialize data if not provided
+        if data is None:
+            data = {}
         
         # Always include the API key
         if "ApiKey" not in data:

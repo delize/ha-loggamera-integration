@@ -40,8 +40,8 @@ SENSOR_MAP = {
     # PowerMeter standard values - THESE MUST BE PRESERVED
     "ConsumedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total förbrukning"},
     "PowerInkW": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.KILO_WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Effekt"},
-    "alarmActive": {"device_class": None, "unit": None, "state_class": None, "name": "Larm aktivt"},
-    "alarmInClearText": {"device_class": None, "unit": None, "state_class": None, "name": "Larmtext"},
+    "alarmActive": {"device_class": None, "unit": None, "state_class": None, "name": "Larm aktivt", "icon": "mdi:alert-circle"},
+    "alarmInClearText": {"device_class": None, "unit": None, "state_class": None, "name": "Larmtext", "icon": "mdi:alert-box"},
     
     # RawData specific values - these are the most common ones
     "544352": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Imported"},  # Energy imported
@@ -137,27 +137,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 if not value.get("ClearTextName") and not value.get("Name"):
                     continue
                     
-                # Skip empty values
-                if value.get("Value", "") == "":
-                    continue
+                # Get value name and type
+                value_name = value.get("Name", "")
+                value_type = value.get("ValueType", "DECIMAL")
+                is_boolean = value_type == "BOOLEAN"
+                is_string = value_type == "STRING"
+                
+                # For non-numeric values, check if we should include them
+                if not is_boolean and not is_string:
+                    # Skip empty values
+                    if value.get("Value", "") == "":
+                        continue
                 
                 # Generate a unique ID for this sensor
-                unique_id = f"loggamera_{device_id}_{value.get('Name')}"
+                unique_id = f"loggamera_{device_id}_{value_name}"
                 
                 # Skip if we've already processed this unique ID
                 if unique_id in processed_unique_ids:
                     continue
                 processed_unique_ids.add(unique_id)
                 
-                # Check if this is a numeric value
-                try:
-                    # Try to convert to float for numeric check
-                    float(value.get("Value", "0"))
-                    is_numeric = True
-                except (ValueError, TypeError):
-                    is_numeric = False
-                
-                # For PowerMeter endpoints, include all values including non-numeric
+                # For PowerMeter devices, include all values including non-numeric
                 if device_type == "PowerMeter":
                     # Include all PowerMeter values
                     entity = LoggameraSensor(
@@ -173,6 +173,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     _LOGGER.debug(f"Created sensor: {entity.name} with value: {value.get('Value')}")
                 else:
                     # For other device types, only include numeric values
+                    try:
+                        # Try to convert to float for numeric check
+                        float(value.get("Value", "0"))
+                        is_numeric = True
+                    except (ValueError, TypeError):
+                        is_numeric = False
+                    
                     if is_numeric:
                         entity = LoggameraSensor(
                             coordinator=coordinator,
@@ -207,133 +214,58 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self.device_name = device_name
         self.value_data = value_data
         self.hass = hass
+        self._value_name = value_data.get("Name", "unknown")
+        self._value_type = value_data.get("ValueType", "DECIMAL")
+        self._is_boolean = self._value_type == "BOOLEAN"
+        self._is_string = self._value_type == "STRING"
         
-        # Get sensor name and type
-        self.sensor_name = value_data.get("Name", "")
-        self.sensor_clear_name = value_data.get("ClearTextName", self.sensor_name)
+        # Get display name from mapping if available
+        self._value_display_name = value_data.get("ClearTextName", self._value_name)
+        if self._value_name in SENSOR_MAP:
+            map_name = SENSOR_MAP[self._value_name].get("name")
+            if map_name:
+                self._value_display_name = map_name
         
-        if not self.sensor_clear_name:
-            self.sensor_clear_name = self.sensor_name
+        # Set unique ID and name
+        self._attr_unique_id = f"loggamera_{device_id}_{self._value_name}"
+        self._attr_name = f"{device_name} {self._value_display_name}"
+        
+        # Get icon from mapping if available
+        if self._value_name in SENSOR_MAP and "icon" in SENSOR_MAP[self._value_name]:
+            self._attr_icon = SENSOR_MAP[self._value_name]["icon"]
             
-        # Construct unique ID
-        self._attr_unique_id = f"loggamera_{device_id}_{self.sensor_name}"
-        
-        # Device name will be the parent device
-        self._attr_name = f"{device_name} {self.sensor_clear_name}"
-        
-        # Determine native value and unit
-        self._native_value = self._parse_value(value_data.get("Value"))
-        
-        # Set device class, unit, and state class based on sensor type
-        self._set_sensor_attributes()
-        
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(device_id))},
-            name=device_name,
-            manufacturer="Loggamera",
-            model=device_type,
-        )
-        
-        _LOGGER.debug(
-            f"Created sensor: {self.name} with value: {self._native_value}, "
-            f"device_class: {self._attr_device_class}, unit: {self._attr_native_unit_of_measurement}, "
-            f"state_class: {self._attr_state_class}"
-        )
-
-    def _parse_value(self, value):
-        """Parse value to the correct type with proper sanitization."""
-        if value is None:
-            return None
-            
-        # Handle string values
-        if isinstance(value, str):
-            # Remove any leading/trailing whitespace
-            value = value.strip()
-            
-            # Check for empty strings
-            if not value:
-                return None
-                
-            # Try to convert to float for numeric values
-            try:
-                # Convert to float, handling comma as decimal separator (European format)
-                value = value.replace(',', '.')
-                return float(value)
-            except (ValueError, TypeError):
-                # Not a number, return as is (but sanitized)
-                # Limit string length for safety
-                return value[:255]
-        
-        # If it's already a number, return it
-        if isinstance(value, (int, float)):
-            return float(value)
-            
-        # For any other type, convert to string and sanitize
-        return str(value)[:255]
-
-    def _set_sensor_attributes(self):
-        """Set device class, unit, and state class based on sensor type."""
-        # Check if we have a direct mapping for this sensor
-        if self.sensor_name in SENSOR_MAP:
-            sensor_info = SENSOR_MAP[self.sensor_name]
-            self._attr_device_class = sensor_info.get("device_class")
-            self._attr_native_unit_of_measurement = sensor_info.get("unit")
-            self._attr_state_class = sensor_info.get("state_class")
-            
-            # Override name if provided in mapping
-            if "name" in sensor_info:
-                self._attr_name = f"{self.device_name} {sensor_info['name']}"
-        else:
-            # Try to determine from the unit type
-            unit_type = self.value_data.get("UnitType", "").lower()
-            unit_presentation = self.value_data.get("UnitPresentation", "")
-            
-            if unit_type == "kwh":
-                self._attr_device_class = SensorDeviceClass.ENERGY
-                self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-                self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-            elif unit_type == "kw":
-                self._attr_device_class = SensorDeviceClass.POWER
-                self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
-                self._attr_state_class = SensorStateClass.MEASUREMENT
-            elif unit_type == "watt":
-                self._attr_device_class = SensorDeviceClass.POWER
-                self._attr_native_unit_of_measurement = UnitOfPower.WATT
-                self._attr_state_class = SensorStateClass.MEASUREMENT
-            elif unit_type == "ampere":
-                self._attr_device_class = SensorDeviceClass.CURRENT
-                self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-                self._attr_state_class = SensorStateClass.MEASUREMENT
-            elif unit_type == "volt":
-                self._attr_device_class = SensorDeviceClass.VOLTAGE
-                self._attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-                self._attr_state_class = SensorStateClass.MEASUREMENT
-            else:
-                # Default to measurement for unknown types
-                self._attr_device_class = None
-                self._attr_native_unit_of_measurement = unit_presentation
-                self._attr_state_class = SensorStateClass.MEASUREMENT
-
+        # Set special icons for alarm states
+        if self._value_name == "alarmActive" and self._is_boolean:
+            current_value = value_data.get("Value", "false")
+            is_active = current_value.lower() == "true" if isinstance(current_value, str) else bool(current_value)
+            self._attr_icon = "mdi:alert-circle" if is_active else "mdi:alert-circle-outline"
+    
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        try:
-            # Get latest data for this device
+        if not self.coordinator.data or "device_data" not in self.coordinator.data:
+            return None
+        
+        # Try to get device data using device_id
+        device_data = self.coordinator.data.get("device_data", {}).get(self.device_id)
+        if not device_data:
+            # Try with string device_id
             device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
-            
-            if not device_data or "Data" not in device_data or not device_data["Data"]:
-                return self._native_value
+        
+        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+            return None
+        
+        # Find our sensor value in device data
+        for value in device_data["Data"]["Values"]:
+            if value.get("Name") == self._value_name:
+                raw_value = value.get("Value", "")
                 
-            # Find the matching value in the latest data
-            if "Values" in device_data["Data"]:
-                for value in device_data["Data"]["Values"]:
-                    if value.get("Name") == self.sensor_name:
-                        return self._parse_value(value.get("Value"))
-            
-            # If we got here, the value wasn't found in the latest data
-            return self._native_value
-            
-        except Exception as err:
-            _LOGGER.error(f"Error getting native value for {self.name}: {err}")
-            return self._native_value
+                # Update icon if this is an alarm sensor
+                if self._value_name == "alarmActive" and self._is_boolean:
+                    is_active = raw_value.lower() == "true" if isinstance(raw_value, str) else bool(raw_value)
+                    self._attr_icon = "mdi:alert-circle" if is_active else "mdi:alert-circle-outline"
+                
+                # Parse the value based on its type
+                return self._parse_value(raw_value)
+        
+        return None
