@@ -33,11 +33,3 @@ API_ENDPOINT_EXECUTE_SCENARIO = "ExecuteScenario"
 
 # Platforms
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH]
-
-# Sensor types
-SENSOR_ENERGY = "energy"
-SENSOR_POWER = "power"
-SENSOR_TEMPERATURE = "temperature"
-SENSOR_HUMIDITY = "humidity"
-SENSOR_WATER = "water"
-SENSOR_VALUE = "value"

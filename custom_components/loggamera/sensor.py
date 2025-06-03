@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.const import (
@@ -68,73 +69,61 @@ STATE_CLASS_MAP = {
     "WaterVolume": SensorStateClass.TOTAL_INCREASING,
 }
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     """Set up Loggamera sensors based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     api = hass.data[DOMAIN][entry.entry_id]["api"]
     
+    # Try to force a refresh to get fresh data
+    await coordinator.async_refresh()
+    
     entities = []
     
-    # Process devices from coordinator data
-    if "devices" not in coordinator.data:
+    if not coordinator.data or "devices" not in coordinator.data:
         _LOGGER.error("No devices data in coordinator")
         return
     
-    for device in coordinator.data["devices"]:
+    for device in coordinator.data.get("devices", []):
         device_id = device["Id"]
         device_type = device["Class"]
         device_name = device.get("Title", f"{device_type} {device_id}")
         
         _LOGGER.debug(f"Setting up sensors for device: {device_name} (ID: {device_id}, Type: {device_type})")
         
-        # Get device data from coordinator instead of making direct API calls
+        # Get device data from coordinator
         device_data = coordinator.data.get("device_data", {}).get(str(device_id))
-        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
-            _LOGGER.warning(f"No values data for device {device_name}")
+        
+        if not device_data:
+            _LOGGER.warning(f"No device data found for {device_name}")
             continue
         
-        # Check if device has any sensors
-        values = device_data["Data"]["Values"]
-        if not values:
-            _LOGGER.warning(f"Device {device_name} has no sensor values")
+        if "Data" not in device_data or device_data["Data"] is None:
+            _LOGGER.warning(f"No 'Data' in device data for {device_name}")
             continue
         
-        # Check data timestamp for PowerMeter devices
-        if device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
-            timestamp_str = device_data["Data"]["LogDateTimeUtc"]
-            try:
-                # Parse the timestamp to check data age
-                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-                now = dt_util.utcnow()
-                age = now - timestamp
-                
-                # If data is more than 2 hours old, log a warning
-                if age.total_seconds() > 7200:
-                    _LOGGER.warning(
-                        f"PowerMeter device {device_name} data is {age.total_seconds()/3600:.1f} hours old "
-                        f"(timestamp: {timestamp_str}). This may indicate an issue with the device."
+        # Standard handling for devices with Values
+        if "Values" in device_data["Data"]:
+            values = device_data["Data"]["Values"]
+            if not values:
+                _LOGGER.warning(f"Device {device_name} has no sensor values in Values array")
+                continue
+            
+            # Create sensor entities for each value that is not a boolean
+            for value in values:
+                if value.get("ValueType") != "BOOLEAN" and value.get("ValueType") != "STRING":
+                    entity = LoggameraSensor(
+                        coordinator=coordinator,
+                        api=api,
+                        device_id=device_id,
+                        device_type=device_type,
+                        device_name=device_name,
+                        value_data=value,
+                        hass=hass,
                     )
-                else:
-                    _LOGGER.debug(f"PowerMeter device {device_name} data timestamp: {timestamp_str}")
-            except (ValueError, AttributeError):
-                _LOGGER.warning(f"Could not parse timestamp: {timestamp_str}")
-        
-        # Create sensor entities for each value
-        for value in values:
-            # Don't create sensor for boolean values (those are binary sensors)
-            if value.get("ValueType") != "BOOLEAN":
-                entity = LoggameraSensor(
-                    coordinator=coordinator,
-                    api=api,
-                    device_id=device_id,
-                    device_type=device_type,
-                    device_name=device_name,
-                    value_data=value,
-                    hass=hass,
-                )
-                entities.append(entity)
-        
-        _LOGGER.debug(f"Added {len(entities)} sensors for device {device_name}")
+                    entities.append(entity)
+                    _LOGGER.debug(f"Created sensor: {entity.name} with value: {value.get('Value')}")
+        else:
+            _LOGGER.warning(f"No 'Values' data for device {device_name}")
     
     if entities:
         async_add_entities(entities)
@@ -153,6 +142,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self.device_type = device_type
         self._device_name = device_name
         self._hass = hass
+        self._value_data = value_data
         
         # Value data
         self._value_name = value_data.get("Name", "Unknown")
@@ -161,8 +151,16 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self._unit_type = value_data.get("UnitType", "")
         self._unit = value_data.get("UnitPresentation", "")
         
-        # Last value
-        self._last_value = None
+        # Handle value conversion for numeric types
+        if self._value_type in ["DECIMAL", "NUMBER"]:
+            try:
+                self._last_value = float(value_data.get("Value", 0))
+            except (ValueError, TypeError):
+                self._last_value = value_data.get("Value")
+        else:
+            self._last_value = value_data.get("Value")
+        
+        # Track last update time
         self._last_update_time = None
         self._stale_data_reported = False
         
@@ -173,11 +171,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # Set device class based on value name or type
         self._attr_device_class = self._get_device_class()
         
-        # Set state class
+        # Set state class based on value name
         self._attr_state_class = STATE_CLASS_MAP.get(self._value_name)
         
         # Set unit of measurement
-        self._attr_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
+        self._attr_native_unit_of_measurement = UNIT_MAP.get(self._unit, self._unit)
         
         # Device info
         self._attr_device_info = DeviceInfo(
@@ -186,6 +184,12 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             manufacturer="Loggamera",
             model=device_type,
         )
+        
+        _LOGGER.debug(f"Created sensor: {self.name} ({self._value_name}), "
+                      f"device_class: {self._attr_device_class}, "
+                      f"state_class: {self._attr_state_class}, "
+                      f"unit: {self._attr_native_unit_of_measurement}, "
+                      f"initial value: {self._last_value}")
     
     def _get_device_class(self):
         """Determine sensor device class based on value name and unit."""
@@ -193,7 +197,21 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if self._value_name in DEVICE_CLASS_MAP:
             return DEVICE_CLASS_MAP[self._value_name]
         
-        # Try to determine from clear name for common sensors
+        # Try to determine from unit type
+        if self._unit_type:
+            unit_type_lower = self._unit_type.lower()
+            if "power" in unit_type_lower:
+                return SensorDeviceClass.POWER
+            elif "energy" in unit_type_lower:
+                return SensorDeviceClass.ENERGY
+            elif "temp" in unit_type_lower:
+                return SensorDeviceClass.TEMPERATURE
+            elif "humid" in unit_type_lower:
+                return SensorDeviceClass.HUMIDITY
+            elif "water" in unit_type_lower:
+                return SensorDeviceClass.WATER
+        
+        # Try to determine from clear name
         clear_name_lower = self._clear_name.lower()
         
         if "temperatur" in clear_name_lower:
@@ -228,24 +246,34 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         try:
             # Find the device data in coordinator
             device_data = self.coordinator.data.get("device_data", {}).get(str(self.device_id))
-            if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
+            if not device_data or "Data" not in device_data or device_data["Data"] is None:
                 return self._last_value
+            
+            # Check for Values
+            if "Values" in device_data["Data"]:
+                for value in device_data["Data"]["Values"]:
+                    if value.get("Name") == self._value_name:
+                        # Convert string values to proper types for decimal/number values
+                        if value.get("ValueType") == "DECIMAL" or value.get("ValueType") == "NUMBER":
+                            try:
+                                self._last_value = float(value.get("Value"))
+                            except (ValueError, TypeError):
+                                # If conversion fails, keep as is
+                                self._last_value = value.get("Value")
+                        else:
+                            self._last_value = value.get("Value")
+                        return self._last_value
             
             # Track data update timestamp for PowerMeter
             if self.device_type == "PowerMeter" and "LogDateTimeUtc" in device_data["Data"]:
                 try:
                     timestamp = datetime.fromisoformat(device_data["Data"]["LogDateTimeUtc"].replace('Z', '+00:00'))
-                    if self._last_update_time != timestamp:
+                    if hasattr(self, '_last_update_time') and self._last_update_time != timestamp:
                         self._last_update_time = timestamp
-                        self._stale_data_reported = False  # Reset stale data flag on new data
+                        if hasattr(self, '_stale_data_reported'):
+                            self._stale_data_reported = False  # Reset stale data flag on new data
                 except (ValueError, AttributeError):
                     pass
-            
-            # Find the value
-            for value in device_data["Data"]["Values"]:
-                if value.get("Name") == self._value_name:
-                    self._last_value = value.get("Value")
-                    return self._last_value
             
             return self._last_value
         except Exception as err:
