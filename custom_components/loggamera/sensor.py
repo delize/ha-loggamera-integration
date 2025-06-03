@@ -35,12 +35,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Mapping of sensor name to device class, unit, and state class
+# Mapping of sensor name to device class and unit
 SENSOR_MAP = {
-    # PowerMeter standard values
-    "ConsumedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING},
-    "PowerInkW": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.KILO_WATT, "state_class": SensorStateClass.MEASUREMENT},
-    "ExportedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING},
+    # PowerMeter standard values - THESE MUST BE PRESERVED
+    "ConsumedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total förbrukning"},
+    "PowerInkW": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.KILO_WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Effekt"},
+    "alarmActive": {"device_class": None, "unit": None, "state_class": None, "name": "Larm aktivt"},
+    "alarmInClearText": {"device_class": None, "unit": None, "state_class": None, "name": "Larmtext"},
     
     # RawData specific values - these are the most common ones
     "544352": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Imported"},  # Energy imported
@@ -98,7 +99,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         
         # Get device data from coordinator
         device_data = coordinator.data.get("device_data", {}).get(str(device_id))
-        
+        if not device_data:
+            # Try with integer key as fallback
+            device_data = coordinator.data.get("device_data", {}).get(device_id)
+            
         if not device_data:
             _LOGGER.warning(f"No device data found for {device_name}")
             continue
@@ -115,6 +119,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             data_sources.append("PowerMeter")
         if device_data.get("_endpoint_used"):
             data_sources.append(device_data["_endpoint_used"])
+        if device_data.get("_generic_device_used"):
+            data_sources.append("GenericDevice")
             
         if data_sources:
             _LOGGER.debug(f"Device {device_name} data sources: {', '.join(data_sources)}")
@@ -125,7 +131,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 _LOGGER.warning(f"Device {device_name} has no sensor values")
                 continue
             
-            # Create sensor entities for each value that is not a boolean
+            # Create sensor entities for each value
             for value in values:
                 # Skip empty or unlabeled values
                 if not value.get("ClearTextName") and not value.get("Name"):
@@ -143,29 +149,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     continue
                 processed_unique_ids.add(unique_id)
                 
-                # Only add numeric sensors
-                value_type = value.get("ValueType", "")
-                if value_type in ["BOOLEAN", "STRING"]:
-                    continue
-                    
-                # Try to determine if it's a number (even if ValueType is None)
+                # Check if this is a numeric value
                 try:
+                    # Try to convert to float for numeric check
                     float(value.get("Value", "0"))
+                    is_numeric = True
                 except (ValueError, TypeError):
-                    _LOGGER.debug(f"Skipping non-numeric value: {value.get('Name')} = {value.get('Value')}")
-                    continue
+                    is_numeric = False
                 
-                entity = LoggameraSensor(
-                    coordinator=coordinator,
-                    api=api,
-                    device_id=device_id,
-                    device_type=device_type,
-                    device_name=device_name,
-                    value_data=value,
-                    hass=hass,
-                )
-                entities.append(entity)
-                _LOGGER.debug(f"Created sensor: {entity.name} with value: {value.get('Value')}")
+                # For PowerMeter endpoints, include all values including non-numeric
+                if device_type == "PowerMeter":
+                    # Include all PowerMeter values
+                    entity = LoggameraSensor(
+                        coordinator=coordinator,
+                        api=api,
+                        device_id=device_id,
+                        device_type=device_type,
+                        device_name=device_name,
+                        value_data=value,
+                        hass=hass,
+                    )
+                    entities.append(entity)
+                    _LOGGER.debug(f"Created sensor: {entity.name} with value: {value.get('Value')}")
+                else:
+                    # For other device types, only include numeric values
+                    if is_numeric:
+                        entity = LoggameraSensor(
+                            coordinator=coordinator,
+                            api=api,
+                            device_id=device_id,
+                            device_type=device_type,
+                            device_name=device_name,
+                            value_data=value,
+                            hass=hass,
+                        )
+                        entities.append(entity)
+                        _LOGGER.debug(f"Created sensor: {entity.name} with value: {value.get('Value')}")
         else:
             _LOGGER.warning(f"No 'Values' data for device {device_name}")
     
@@ -223,16 +242,35 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         )
 
     def _parse_value(self, value):
-        """Parse value to the correct type."""
+        """Parse value to the correct type with proper sanitization."""
         if value is None:
             return None
             
-        try:
-            # Try to convert to float first
+        # Handle string values
+        if isinstance(value, str):
+            # Remove any leading/trailing whitespace
+            value = value.strip()
+            
+            # Check for empty strings
+            if not value:
+                return None
+                
+            # Try to convert to float for numeric values
+            try:
+                # Convert to float, handling comma as decimal separator (European format)
+                value = value.replace(',', '.')
+                return float(value)
+            except (ValueError, TypeError):
+                # Not a number, return as is (but sanitized)
+                # Limit string length for safety
+                return value[:255]
+        
+        # If it's already a number, return it
+        if isinstance(value, (int, float)):
             return float(value)
-        except (ValueError, TypeError):
-            # If not a number, return as is
-            return value
+            
+        # For any other type, convert to string and sanitize
+        return str(value)[:255]
 
     def _set_sensor_attributes(self):
         """Set device class, unit, and state class based on sensor type."""
