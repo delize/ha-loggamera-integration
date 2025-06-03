@@ -28,8 +28,9 @@ class LoggameraAPI:
         self.base_url = base_url
         self.session = requests.Session()
         self.session.headers.update(
-            {"Content-Type": "application/json", "X-Api-Key": api_key}
+            {"Content-Type": "application/json"}
         )
+        # Note: We don't add X-Api-Key header by default anymore, since some endpoints need it in the body
         
         # Log environment information for debugging
         _LOGGER.info(f"Python version: {sys.version}")
@@ -47,13 +48,13 @@ class LoggameraAPI:
         if not data:
             data = {}
             
-        # Add organization ID if available and not already in data
-        if self.organization_id and "OrganizationId" not in data:
+        # Only add organization ID for certain endpoints that need it
+        if endpoint not in ["Organizations", "PowerMeter"] and self.organization_id and "OrganizationId" not in data:
             data["OrganizationId"] = self.organization_id
             
         url = f"{self.base_url}/{endpoint}"
         
-        _LOGGER.debug(f"Making request to {url}")
+        _LOGGER.debug(f"Making request to {url} with data: {data}")
         
         try:
             response = self.session.post(
@@ -72,7 +73,13 @@ class LoggameraAPI:
             if "Error" in json_response and json_response["Error"]:
                 error_msg = json_response["Error"].get("Message", "Unknown API error")
                 _LOGGER.error(f"API error: {error_msg}")
-                raise LoggameraAPIError(f"API error: {error_msg}")
+                
+                # If Data is null, this is a critical error
+                if "Data" in json_response and json_response["Data"] is None:
+                    raise LoggameraAPIError(f"API error: {error_msg}")
+                
+                # Some errors may still return partial data, so we'll continue with a warning
+                _LOGGER.warning(f"API warning: {error_msg}, but data was returned")
                 
             return json_response
             
@@ -86,11 +93,17 @@ class LoggameraAPI:
 
     def get_organizations(self) -> Dict[str, Any]:
         """Get organizations."""
-        return self._make_request("Organizations")
+        # Based on our API explorer testing, the Organizations endpoint requires the ApiKey in the body
+        return self._make_request("Organizations", {"ApiKey": self.api_key})
 
     def get_devices(self) -> Dict[str, Any]:
         """Get devices."""
-        return self._make_request("Devices")
+        # Build data with API key and organization ID if available
+        data = {"ApiKey": self.api_key}
+        if self.organization_id:
+            data["OrganizationId"] = self.organization_id
+        
+        return self._make_request("Devices", data)
 
     def get_scenarios(self) -> Dict[str, Any]:
         """Get scenarios."""
