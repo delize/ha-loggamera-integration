@@ -160,7 +160,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                     updated_data["devices"] = devices_response["Data"]["Devices"]
                     _LOGGER.info(f"Found {len(updated_data['devices'])} devices")
             
-            # Fetch scenarios if available
+            # Fetch scenarios if available (for button platform if needed in future)
             try:
                 scenarios_response = await self.hass.async_add_executor_job(self.api.get_scenarios)
                 if (
@@ -173,18 +173,31 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                 # Don't fail the whole update if scenarios aren't available
                 pass
             
-            # Fetch device data for each device
+            # Fetch device data for each device - this will now fetch both RawData and PowerMeter data
+            # for PowerMeter devices as implemented in the API client
             for device in updated_data["devices"]:
                 device_id = device["Id"]
                 device_type = device["Class"]
                 try:
-                    # Fetch device data - different formats based on device type
+                    # Fetch device data - our updated get_device_data method handles combining data sources
                     device_data = await self.hass.async_add_executor_job(
                         self.api.get_device_data, device_id, device_type
                     )
                     
                     # Store the device data
                     updated_data["device_data"][str(device_id)] = device_data
+                    
+                    # Log which data sources were used
+                    sources = []
+                    if device_data.get("_raw_data_used"):
+                        sources.append("RawData")
+                    if device_data.get("_power_meter_used"):
+                        sources.append("PowerMeter")
+                    if device_data.get("_endpoint_used"):
+                        sources.append(device_data["_endpoint_used"])
+                        
+                    if sources:
+                        _LOGGER.debug(f"Device {device_id} data fetched from: {', '.join(sources)}")
                 except Exception as err:
                     _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
             
