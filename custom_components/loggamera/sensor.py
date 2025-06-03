@@ -223,8 +223,15 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self._is_boolean = value_data.get("ValueType") == "BOOLEAN"
         self._is_string = value_data.get("ValueType") == "STRING"
         
-        # Set entity description
-        self._attr_name = f"{device_name} {value_data.get('ClearTextName', value_data.get('Name', 'Unknown'))}"
+        # Get friendly name from SENSOR_MAP if available
+        sensor_info = SENSOR_MAP.get(self.sensor_name, {})
+        friendly_name = sensor_info.get("name")
+        
+        # Use friendly name if available, otherwise use API name
+        display_name = friendly_name if friendly_name else value_data.get('ClearTextName', value_data.get('Name', 'Unknown'))
+        
+        # Set entity description with friendly name
+        self._attr_name = f"{device_name} {display_name}"
         self._attr_unique_id = f"loggamera_{device_id}_{self.sensor_name}"
         
         # For device with device ID in string format, ensure we have a consistent format
