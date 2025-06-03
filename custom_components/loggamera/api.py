@@ -5,6 +5,7 @@ import platform
 import sys
 import ssl
 import certifi
+from datetime import datetime
 from typing import Dict, Any, Optional
 
 import requests
@@ -104,27 +105,40 @@ class LoggameraAPI:
         endpoint = self._get_endpoint_for_device_type(device_type)
         
         try:
-            # Add additional parameters for PowerMeter endpoint
+            # Special handling for PowerMeter endpoint based on the working example
             if endpoint == "PowerMeter":
-                # Debug dump of the request to help troubleshoot
-                _LOGGER.debug(f"Requesting PowerMeter data for device {device_id}")
+                # Use the current time in the required format
+                current_time = datetime.utcnow()
+                timestamp = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+                
+                # Using the format that works with the API (confirmed with API explorer)
                 data = {
-                    "DeviceId": device_id,
-                    # Add FromDate parameter to get more data
-                    "FromDate": None  # This will get all available data
+                    "ApiKey": self.api_key,  # API key is required in body for this endpoint
+                    "DeviceId": int(device_id),  # Must be an integer
+                    "DateTimeUtc": timestamp  # This is the required format
                 }
+                
+                _LOGGER.debug(f"PowerMeter request with data: {data}")
                 response = self._make_request(endpoint, data)
             else:
+                # Default request format for other endpoints
                 response = self._make_request(endpoint, {"DeviceId": device_id})
             
             # Debug the response structure 
             if endpoint == "PowerMeter":
                 _LOGGER.debug(f"PowerMeter response keys: {list(response.keys())}")
                 if "Data" in response:
-                    _LOGGER.debug(f"PowerMeter Data keys: {list(response['Data'].keys())}")
+                    if response["Data"] is None:
+                        _LOGGER.error("PowerMeter response Data is None")
+                    else:
+                        _LOGGER.debug(f"PowerMeter Data keys: {list(response['Data'].keys())}")
+                        if "Values" in response["Data"]:
+                            _LOGGER.debug(f"Found {len(response['Data']['Values'])} values in response")
+                            for val in response["Data"]["Values"]:
+                                _LOGGER.debug(f"Value: {val['Name']} = {val['Value']} {val.get('UnitPresentation', '')}")
             
             # Store timestamp for PowerMeter devices
-            if endpoint == "PowerMeter" and "Data" in response:
+            if endpoint == "PowerMeter" and "Data" in response and response["Data"] is not None:
                 if "LogDateTimeUtc" in response["Data"]:
                     timestamp = response["Data"]["LogDateTimeUtc"]
                     
@@ -136,59 +150,6 @@ class LoggameraAPI:
                             _LOGGER.info(f"Initial data for PowerMeter device {device_id}: {timestamp}")
                             
                         self.device_timestamps[device_id] = timestamp
-                
-                # If the response doesn't have Values, check if we need to populate
-                if "Values" not in response["Data"] or not response["Data"]["Values"]:
-                    _LOGGER.debug(f"PowerMeter response for device {device_id} has no Values data")
-                    
-                    # Try to extract values from PowerReadings
-                    if "PowerReadings" in response["Data"]:
-                        _LOGGER.debug(f"Found PowerReadings data for device {device_id}")
-                        
-                        # Create values from PowerReadings
-                        readings = response["Data"]["PowerReadings"]
-                        if readings:
-                            # Create synthetic Values array
-                            values = []
-                            
-                            # Extract the latest reading
-                            latest_reading = readings[-1] if readings else None
-                            
-                            if latest_reading:
-                                # Convert PowerMeter readings to Values format
-                                if "PowerInkW" in latest_reading:
-                                    values.append({
-                                        "Name": "PowerInkW",
-                                        "ClearTextName": "Current Power",
-                                        "Value": latest_reading["PowerInkW"],
-                                        "ValueType": "NUMBER",
-                                        "UnitType": "POWER",
-                                        "UnitPresentation": "kW"
-                                    })
-                                
-                                if "ConsumedTotalInkWh" in latest_reading:
-                                    values.append({
-                                        "Name": "ConsumedTotalInkWh",
-                                        "ClearTextName": "Energy Consumption",
-                                        "Value": latest_reading["ConsumedTotalInkWh"],
-                                        "ValueType": "NUMBER",
-                                        "UnitType": "ENERGY",
-                                        "UnitPresentation": "kWh"
-                                    })
-                                
-                                if "ExportedTotalInkWh" in latest_reading:
-                                    values.append({
-                                        "Name": "ExportedTotalInkWh",
-                                        "ClearTextName": "Energy Export",
-                                        "Value": latest_reading["ExportedTotalInkWh"],
-                                        "ValueType": "NUMBER",
-                                        "UnitType": "ENERGY",
-                                        "UnitPresentation": "kWh"
-                                    })
-                                
-                                # Add values to response
-                                response["Data"]["Values"] = values
-                                _LOGGER.debug(f"Created {len(values)} synthetic values from PowerReadings")
             
             # Store the device data for later use
             self.last_device_data[device_id] = response
@@ -199,7 +160,7 @@ class LoggameraAPI:
             # If we get an error, try falling back to the RawData endpoint
             error_str = str(error)
             
-            if "invalid endpoint" in error_str.lower() or "invalid power meter" in error_str.lower():
+            if "invalid endpoint" in error_str.lower() or "invalid power meter" in error_str.lower() or "malformed request" in error_str.lower():
                 # Try RawData instead
                 _LOGGER.debug(f"Falling back to RawData endpoint for device {device_id}")
                 return self._make_request("RawData", {"DeviceId": device_id})
