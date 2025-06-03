@@ -38,14 +38,14 @@ _LOGGER = logging.getLogger(__name__)
 # Mapping of sensor name to device class and unit
 SENSOR_MAP = {
     # PowerMeter standard values - THESE MUST BE PRESERVED
-    "ConsumedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total förbrukning"},
-    "PowerInkW": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.KILO_WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Effekt"},
-    "alarmActive": {"device_class": None, "unit": None, "state_class": None, "name": "Larm aktivt", "icon": "mdi:alert-circle"},
-    "alarmInClearText": {"device_class": None, "unit": None, "state_class": None, "name": "Larmtext", "icon": "mdi:alert-box"},
+    "ConsumedTotalInkWh": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total Energy Consumption"},
+    "PowerInkW": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.KILO_WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Current Energy Consumption"},
+    "alarmActive": {"device_class": None, "unit": None, "state_class": None, "name": "Alarm Status", "icon": "mdi:alert-circle"},
+    "alarmInClearText": {"device_class": None, "unit": None, "state_class": None, "name": "Alarm Context", "icon": "mdi:alert-box"},
     
     # RawData specific values - these are the most common ones
-    "544352": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Imported"},  # Energy imported
-    "544353": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.MEASUREMENT, "name": "Energy Imported Interval"},  # Energy imported interval
+    "544352": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total Energy Consumed"},  # Energy imported
+    "544353": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.MEASUREMENT, "name": "Total Energy Interval"},  # Energy imported interval
     "544399": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Power"},  # Power
     "544463": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Phase 1"},  # Energy (Phase 1)
     "544464": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Phase 2"},  # Energy (Phase 2)
@@ -56,8 +56,8 @@ SENSOR_MAP = {
     "544395": {"device_class": SensorDeviceClass.VOLTAGE, "unit": UnitOfElectricPotential.VOLT, "state_class": SensorStateClass.MEASUREMENT, "name": "Voltage Phase 1"},  # Voltage (Phase 1)
     "544396": {"device_class": SensorDeviceClass.VOLTAGE, "unit": UnitOfElectricPotential.VOLT, "state_class": SensorStateClass.MEASUREMENT, "name": "Voltage Phase 2"},  # Voltage (Phase 2)
     "544397": {"device_class": SensorDeviceClass.VOLTAGE, "unit": UnitOfElectricPotential.VOLT, "state_class": SensorStateClass.MEASUREMENT, "name": "Voltage Phase 3"},  # Voltage (Phase 3)
-    "549990": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Energy Exported"},  # Exported energy
-    "550224": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.MEASUREMENT, "name": "Energy Exported Interval"},  # Exported energy interval
+    "549990": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.TOTAL_INCREASING, "name": "Total Energy Generated"},  # Exported energy
+    "550224": {"device_class": SensorDeviceClass.ENERGY, "unit": UnitOfEnergy.KILO_WATT_HOUR, "state_class": SensorStateClass.MEASUREMENT, "name": "Energy Generated Interval"},  # Exported energy interval
     "550205": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Power Phase 1"},  # Power phase 1
     "550206": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Power Phase 2"},  # Power phase 2
     "550207": {"device_class": SensorDeviceClass.POWER, "unit": UnitOfPower.WATT, "state_class": SensorStateClass.MEASUREMENT, "name": "Power Phase 3"},  # Power phase 3
