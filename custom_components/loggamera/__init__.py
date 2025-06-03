@@ -1,12 +1,15 @@
-"""Custom integration for Loggamera Smart Meters and Sensors"""
+"""The Loggamera integration."""
+import asyncio
 import logging
 import time
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Dict, Any
+
+import voluptuous as vol
+import async_timeout
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import (
@@ -17,156 +20,182 @@ from homeassistant.helpers.update_coordinator import (
 from .api import LoggameraAPI, LoggameraAPIError
 from .const import (
     DOMAIN,
-    PLATFORMS,
     CONF_API_KEY,
     CONF_ORGANIZATION_ID,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
+    PLATFORMS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Loggamera component."""
-    hass.data[DOMAIN] = {}
+    """Set up the Loggamera integration."""
+    # Create domain data if not exists
+    hass.data.setdefault(DOMAIN, {})
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
-    # Get configuration from config entry
-    api_key = entry.data[CONF_API_KEY]
-    organization_id = entry.data.get(CONF_ORGANIZATION_ID)
-    
-    # Get scan interval from config entry options or use default
-    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    
-    # Initialize API client
-    api = LoggameraAPI(api_key, organization_id)
-    
-    # Verify connectivity before proceeding
     try:
-        # Test the connection to the API
-        org_response = await hass.async_add_executor_job(api.get_organizations)
+        # Get config entry data
+        api_key = entry.data[CONF_API_KEY]
+        organization_id = entry.data.get(CONF_ORGANIZATION_ID)
         
-        if "Data" not in org_response or "Organizations" not in org_response["Data"]:
-            raise ConfigEntryNotReady("Invalid organization response from API")
-            
-        # If we don't have an organization ID yet, get it from the response
-        if not organization_id and org_response["Data"]["Organizations"]:
-            organization_id = org_response["Data"]["Organizations"][0]["Id"]
-            api.organization_id = organization_id
-            
-            # Update the config entry with the organization ID
-            new_data = dict(entry.data)
-            new_data[CONF_ORGANIZATION_ID] = organization_id
-            hass.config_entries.async_update_entry(entry, data=new_data)
-            
-        # Verify we can access devices
-        devices_response = await hass.async_add_executor_job(api.get_devices)
-        if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
-            raise ConfigEntryNotReady("Invalid device response from API")
-            
-    except LoggameraAPIError as err:
-        _LOGGER.error(f"Failed to connect to Loggamera API: {err}")
-        raise ConfigEntryNotReady(f"Failed to connect to Loggamera API: {err}")
+        # Get scan interval from options or data, or use default
+        scan_interval = entry.options.get(
+            CONF_SCAN_INTERVAL, 
+            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        )
         
-    # Create update coordinator
-    async def _update_data():
-        """Fetch data from API."""
-        _LOGGER.debug("Starting data update cycle")
-        start_time = time.time()
+        _LOGGER.debug(f"Setting up integration with scan interval: {scan_interval} seconds")
         
+        # Create API client
+        api = LoggameraAPI(api_key=api_key, organization_id=organization_id)
+        
+        # Test API connection
         try:
-            # Get organizations
-            org_response = await hass.async_add_executor_job(api.get_organizations)
-            if "Data" not in org_response or "Organizations" not in org_response["Data"]:
-                raise UpdateFailed("Invalid organization response format")
-                
-            # Get devices
-            devices_response = await hass.async_add_executor_job(api.get_devices)
-            if "Data" not in devices_response or "Devices" not in devices_response["Data"]:
-                raise UpdateFailed("Invalid device response format")
-                
-            devices = devices_response["Data"]["Devices"]
+            # Test connection by getting organizations
+            await hass.async_add_executor_job(api.get_organizations)
+        except LoggameraAPIError as err:
+            _LOGGER.error(f"Failed to connect to Loggamera API: {err}")
+            raise ConfigEntryNotReady(f"Failed to connect to Loggamera API: {err}")
+        
+        # Create update coordinator
+        coordinator = LoggameraDataUpdateCoordinator(
+            hass,
+            api=api,
+            name=f"Loggamera {organization_id}" if organization_id else "Loggamera",
+            update_interval=timedelta(seconds=scan_interval),
+        )
+        
+        # Initial data fetch
+        await coordinator.async_config_entry_first_refresh()
+        
+        if not coordinator.last_update_success:
+            raise ConfigEntryNotReady(f"Failed to fetch initial data: {coordinator.last_exception}")
             
-            # Get scenarios
-            try:
-                scenarios_response = await hass.async_add_executor_job(api.get_scenarios)
-                scenarios = []
-                if "Data" in scenarios_response and "Scenarios" in scenarios_response["Data"]:
-                    scenarios = scenarios_response["Data"]["Scenarios"]
-            except LoggameraAPIError:
-                _LOGGER.warning("Failed to get scenarios")
-                scenarios = []
-                
-            # Get data for each device
-            device_data = {}
-            for device in devices:
-                device_id = device["Id"]
-                device_type = device["Class"]
-                
-                try:
-                    # Use async_add_executor_job for blocking API calls
-                    data = await hass.async_add_executor_job(
-                        api.get_device_data, device_id, device_type
-                    )
-                    if data:
-                        device_data[device_id] = data
-                except LoggameraAPIError:
-                    _LOGGER.warning(f"Failed to get data for device {device_id}")
-                    
-            result = {
-                "organizations": org_response["Data"]["Organizations"],
-                "devices": devices,
-                "scenarios": scenarios,
-                "device_data": device_data,
-            }
-            
-            _LOGGER.debug(f"Finished fetching loggamera data in {time.time() - start_time:.3f} seconds (success: True)")
-            return result
-            
-        except Exception as err:
-            _LOGGER.error(f"Error fetching loggamera data: {err}")
-            _LOGGER.debug(f"Finished fetching loggamera data in {time.time() - start_time:.3f} seconds (success: False)")
-            raise UpdateFailed(f"Error fetching loggamera data: {err}")
-            
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name=DOMAIN,
-        update_method=_update_data,
-        update_interval=timedelta(seconds=scan_interval),
-    )
-    
-    # Fetch initial data
-    await coordinator.async_refresh()
-    
-    # Store API and coordinator in hass.data
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-        "api": api,
-    }
-    
-    # Set up all platforms
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    
-    # Register update listener for options
-    entry.async_on_unload(entry.add_update_listener(async_update_options))
-    
-    _LOGGER.info(f"Loggamera integration set up with scan interval: {scan_interval} seconds (PowerMeter data typically updates every ~30 minutes)")
-    return True
-
-async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Update options for Loggamera integration."""
-    await hass.config_entries.async_reload(entry.entry_id)
-
+        # Store the coordinator and API client
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN][entry.entry_id] = {
+            "coordinator": coordinator,
+            "api": api,
+        }
+        
+        # Set up platforms
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        
+        # Add update listener
+        entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+        
+        return True
+    except Exception as err:
+        _LOGGER.exception(f"Unexpected error during setup: {err}")
+        raise ConfigEntryNotReady(f"Unexpected error during setup: {err}")
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    _LOGGER.debug(f"Unloading Loggamera integration for {entry.title}")
+    
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-        if not hass.data[DOMAIN]:
-            hass.data.pop(DOMAIN)
+        
     return unload_ok
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    _LOGGER.debug(f"Reloading Loggamera integration for {entry.title}")
+    await hass.config_entries.async_reload(entry.entry_id)
+
+class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching Loggamera data."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api: LoggameraAPI,
+        name: str,
+        update_interval: timedelta,
+    ):
+        """Initialize data update coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=name,
+            update_interval=update_interval,
+        )
+        self.api = api
+        self.data = {
+            "devices": [],
+            "device_data": {},
+            "scenarios": [],
+        }
+        
+        _LOGGER.debug(f"Created Loggamera data coordinator with update interval: {update_interval}")
+
+    async def _async_update_data(self) -> Dict[str, Any]:
+        """Fetch data from API."""
+        try:
+            _LOGGER.debug("Starting data update cycle")
+            start_time = time.time()
+            
+            # Start with existing data - we'll update it
+            updated_data = self.data.copy()
+            
+            # Fetch organizations first if needed (typically not necessary)
+            if not self.api.organization_id:
+                _LOGGER.debug("No organization ID set, fetching organizations")
+                org_response = await self.hass.async_add_executor_job(self.api.get_organizations)
+                
+                if "Data" in org_response and "Organizations" in org_response["Data"] and org_response["Data"]["Organizations"]:
+                    self.api.organization_id = org_response["Data"]["Organizations"][0]["Id"]
+                    _LOGGER.info(f"Set organization ID to {self.api.organization_id}")
+            
+            # Fetch devices if we don't have them yet
+            if not updated_data["devices"]:
+                devices_response = await self.hass.async_add_executor_job(self.api.get_devices)
+                if "Data" in devices_response and "Devices" in devices_response["Data"]:
+                    updated_data["devices"] = devices_response["Data"]["Devices"]
+                    _LOGGER.info(f"Found {len(updated_data['devices'])} devices")
+            
+            # Fetch scenarios if available
+            try:
+                scenarios_response = await self.hass.async_add_executor_job(self.api.get_scenarios)
+                if (
+                    "Data" in scenarios_response
+                    and "Scenarios" in scenarios_response["Data"]
+                ):
+                    updated_data["scenarios"] = scenarios_response["Data"]["Scenarios"]
+                    _LOGGER.debug(f"Found {len(updated_data['scenarios'])} scenarios")
+            except LoggameraAPIError:
+                # Don't fail the whole update if scenarios aren't available
+                pass
+            
+            # Fetch device data for each device
+            for device in updated_data["devices"]:
+                device_id = device["Id"]
+                device_type = device["Class"]
+                try:
+                    # Fetch device data - different formats based on device type
+                    device_data = await self.hass.async_add_executor_job(
+                        self.api.get_device_data, device_id, device_type
+                    )
+                    
+                    # Store the device data
+                    updated_data["device_data"][str(device_id)] = device_data
+                except Exception as err:
+                    _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
+            
+            # Calculate time taken for the update
+            elapsed = time.time() - start_time
+            _LOGGER.debug(f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})")
+            
+            return updated_data
+        except LoggameraAPIError as err:
+            _LOGGER.error(f"Error fetching data: {err}")
+            raise UpdateFailed(f"Error fetching data: {err}")
+        except Exception as err:
+            _LOGGER.exception(f"Unexpected error during update: {err}")
+            raise UpdateFailed(f"Unexpected error: {err}")

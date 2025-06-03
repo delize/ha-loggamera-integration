@@ -1,197 +1,270 @@
-"""Loggamera API client."""
+"""API client for Loggamera."""
 import logging
-import json
-import platform
-import sys
-import ssl
-import certifi
-from datetime import datetime
-from typing import Dict, Any, Optional
-
 import requests
+import certifi
+import json
+import sys
+import platform
+import ssl
+from datetime import datetime
+
+from homeassistant.const import CONTENT_TYPE_JSON
+
+from .const import (
+    API_URL,
+    API_ENDPOINT_ORGANIZATIONS,
+    API_ENDPOINT_DEVICES,
+    API_ENDPOINT_POWER_METER,
+    API_ENDPOINT_ROOM_SENSOR,
+    API_ENDPOINT_GENERIC_DEVICE,
+    API_ENDPOINT_WATER_METER,
+    API_ENDPOINT_COOLING_UNIT,
+    API_ENDPOINT_HEAT_PUMP,
+    API_ENDPOINT_RAW_DATA,
+    API_ENDPOINT_CAPABILITIES,
+    API_ENDPOINT_SCENARIOS,
+    API_ENDPOINT_EXECUTE_SCENARIO,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 class LoggameraAPIError(Exception):
-    """Exception to indicate a general API error."""
+    """Exception for Loggamera API errors."""
     pass
 
 class LoggameraAPI:
-    """Loggamera API client."""
+    """API client for Loggamera.
+    
+    Note on update frequency:
+    The PowerMeter endpoint typically updates data approximately every 30 minutes.
+    Setting a more frequent polling interval will not result in more data updates.
+    """
 
-    def __init__(
-        self, api_key: str, organization_id: Optional[str] = None, base_url: str = "https://platform.loggamera.se/api/v2"
-    ):
-        """Initialize the API client."""
+    def __init__(self, api_key, organization_id=None):
+        """Initialize API client."""
         self.api_key = api_key
         self.organization_id = organization_id
-        self.base_url = base_url
         self.session = requests.Session()
-        self.session.headers.update(
-            {"Content-Type": "application/json"}
-        )
-        # Note: We don't add X-Api-Key header by default anymore, since some endpoints need it in the body
+        self.session.verify = certifi.where()
         
-        # Log environment information for debugging
+        # Cache for endpoint availability
+        self._endpoint_cache = {}
+        
+        # Keep track of last data timestamp to log changes
+        self._last_data_timestamp = {}
+
+        # Log basic environment info
         _LOGGER.info(f"Python version: {sys.version}")
-        _LOGGER.info(f"OpenSSL version: {ssl.OPENSSL_VERSION}")
+        _LOGGER.info(f"OpenSSL version: {getattr(ssl, 'OPENSSL_VERSION', 'Unknown')}" 
+                     if platform.python_implementation() == 'CPython' else "OpenSSL info not available")
         _LOGGER.info(f"System: {platform.system()} {platform.release()}")
         _LOGGER.info(f"Certifi location: {certifi.where()}")
-        _LOGGER.info(f"API URL: {base_url}")
+        _LOGGER.info(f"API URL: {API_URL}")
         
-        # Keep track of device data update timestamps
-        self.device_timestamps = {}
-        self.last_device_data = {}
+        # For debugging - enable this if needed
+        # from http.client import HTTPConnection
+        # HTTPConnection.debuglevel = 1
 
-    def _make_request(self, endpoint: str, data: Dict = None) -> Dict[str, Any]:
+    def _make_request(self, endpoint, data=None):
         """Make a request to the API."""
-        if not data:
-            data = {}
+        # Check if we already know this endpoint is invalid
+        if endpoint in self._endpoint_cache and self._endpoint_cache[endpoint] is False:
+            _LOGGER.debug(f"Skipping known invalid endpoint: {endpoint}")
+            return {"Data": {}, "Error": {"Message": "invalid endpoint"}}
             
-        # Only add organization ID for certain endpoints that need it
-        if endpoint not in ["Organizations", "PowerMeter"] and self.organization_id and "OrganizationId" not in data:
-            data["OrganizationId"] = self.organization_id
-            
-        url = f"{self.base_url}/{endpoint}"
+        url = f"{API_URL}/{endpoint}"
         
-        _LOGGER.debug(f"Making request to {url} with data: {data}")
+        if data is None:
+            data = {}
+        
+        # Add API key to all requests
+        data["ApiKey"] = self.api_key
+        
+        # Add organization ID if available and not already in data
+        if self.organization_id and "OrganizationId" not in data:
+            # Only add for endpoints that accept OrganizationId
+            if endpoint in [API_ENDPOINT_DEVICES, API_ENDPOINT_SCENARIOS]:
+                data["OrganizationId"] = self.organization_id
         
         try:
+            # Log the request but mask the API key
+            log_data = data.copy()
+            if "ApiKey" in log_data:
+                log_data["ApiKey"] = "***API_KEY***"
+            _LOGGER.debug(f"Making request to {url}")
+            
             response = self.session.post(
                 url,
-                json=data,
+                headers={"Content-Type": CONTENT_TYPE_JSON},
+                data=json.dumps(data),
                 timeout=30
             )
             
-            # Check for HTTP errors
-            response.raise_for_status()
-            
-            # Parse response
-            json_response = response.json()
-            
-            # Check for API errors
-            if "Error" in json_response and json_response["Error"]:
-                error_msg = json_response["Error"].get("Message", "Unknown API error")
-                _LOGGER.error(f"API error: {error_msg}")
-                
-                # If Data is null, this is a critical error
-                if "Data" in json_response and json_response["Data"] is None:
-                    raise LoggameraAPIError(f"API error: {error_msg}")
-                
-                # Some errors may still return partial data, so we'll continue with a warning
-                _LOGGER.warning(f"API warning: {error_msg}, but data was returned")
-                
-            return json_response
-            
-        except requests.exceptions.RequestException as err:
-            _LOGGER.error(f"Request error: {err}")
-            raise LoggameraAPIError(f"Request error: {err}")
-            
-        except json.JSONDecodeError as err:
-            _LOGGER.error(f"JSON decode error: {err}")
-            raise LoggameraAPIError(f"JSON decode error: {err}")
-
-    def get_organizations(self) -> Dict[str, Any]:
-        """Get organizations."""
-        # Based on our API explorer testing, the Organizations endpoint requires the ApiKey in the body
-        return self._make_request("Organizations", {"ApiKey": self.api_key})
-
-    def get_devices(self) -> Dict[str, Any]:
-        """Get devices."""
-        # Build data with API key and organization ID if available
-        data = {"ApiKey": self.api_key}
-        if self.organization_id:
-            data["OrganizationId"] = self.organization_id
-        
-        return self._make_request("Devices", data)
-
-    def get_scenarios(self) -> Dict[str, Any]:
-        """Get scenarios."""
-        return self._make_request("Scenarios")
-
-    def execute_scenario(self, scenario_id: str) -> Dict[str, Any]:
-        """Execute a scenario."""
-        return self._make_request("ExecuteScenario", {"ScenarioId": scenario_id})
-
-    def get_device_data(self, device_id: str, device_type: str) -> Dict[str, Any]:
-        """Get device data based on device type."""
-        endpoint = self._get_endpoint_for_device_type(device_type)
-        
-        try:
-            # Special handling for PowerMeter endpoint based on the working example
-            if endpoint == "PowerMeter":
-                # Use the current time in the required format
-                current_time = datetime.utcnow()
-                timestamp = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-                
-                # Using the format that works with the API (confirmed with API explorer)
-                data = {
-                    "ApiKey": self.api_key,  # API key is required in body for this endpoint
-                    "DeviceId": int(device_id),  # Must be an integer
-                    "DateTimeUtc": timestamp  # This is the required format
-                }
-                
-                _LOGGER.debug(f"PowerMeter request with data: {data}")
-                response = self._make_request(endpoint, data)
-            else:
-                # Default request format for other endpoints
-                response = self._make_request(endpoint, {"DeviceId": device_id})
-            
-            # Debug the response structure 
-            if endpoint == "PowerMeter":
-                _LOGGER.debug(f"PowerMeter response keys: {list(response.keys())}")
-                if "Data" in response:
-                    if response["Data"] is None:
-                        _LOGGER.error("PowerMeter response Data is None")
-                    else:
-                        _LOGGER.debug(f"PowerMeter Data keys: {list(response['Data'].keys())}")
-                        if "Values" in response["Data"]:
-                            _LOGGER.debug(f"Found {len(response['Data']['Values'])} values in response")
-                            for val in response["Data"]["Values"]:
-                                _LOGGER.debug(f"Value: {val['Name']} = {val['Value']} {val.get('UnitPresentation', '')}")
-            
-            # Store timestamp for PowerMeter devices
-            if endpoint == "PowerMeter" and "Data" in response and response["Data"] is not None:
-                if "LogDateTimeUtc" in response["Data"]:
-                    timestamp = response["Data"]["LogDateTimeUtc"]
+            if response.status_code == 200:
+                try:
+                    result = response.json()
                     
-                    if device_id not in self.device_timestamps or self.device_timestamps[device_id] != timestamp:
-                        # Log when data actually updates
-                        if device_id in self.device_timestamps:
-                            _LOGGER.debug(f"PowerMeter device {device_id} data updated: {timestamp} (previous: {self.device_timestamps[device_id]})")
-                        else:
-                            _LOGGER.info(f"Initial data for PowerMeter device {device_id}: {timestamp}")
+                    # Check if we got a straightforward error message
+                    if isinstance(result, dict) and "Message" in result:
+                        message = result["Message"]
+                        if message == "access denied":
+                            _LOGGER.error(f"API error: {result}")
+                            raise LoggameraAPIError(f"API error: {result}")
+                        elif message == "invalid endpoint":
+                            _LOGGER.warning(f"API endpoint not available: {endpoint}")
+                            # Cache that this endpoint is invalid
+                            self._endpoint_cache[endpoint] = False
+                            return {"Data": {}, "Error": result}
+                    
+                    # Mark the endpoint as valid in our cache
+                    self._endpoint_cache[endpoint] = True
+                    
+                    # Check if there's an error in the error field
+                    if "Error" in result and result["Error"] is not None and result["Error"] != "null" and result["Error"] != "":
+                        error_message = result["Error"]
+                        _LOGGER.error(f"API error: {error_message}")
+                        raise LoggameraAPIError(f"API error: {error_message}")
+                    
+                    # Check if this is a data endpoint that might have a timestamp
+                    if endpoint in [API_ENDPOINT_POWER_METER, API_ENDPOINT_RAW_DATA, API_ENDPOINT_GENERIC_DEVICE]:
+                        device_id = data.get("DeviceId")
+                        if device_id and "Data" in result and "LogDateTimeUtc" in result["Data"]:
+                            new_timestamp = result["Data"]["LogDateTimeUtc"]
                             
-                        self.device_timestamps[device_id] = timestamp
-            
-            # Store the device data for later use
-            self.last_device_data[device_id] = response
-            
-            return response
-            
-        except LoggameraAPIError as error:
-            # If we get an error, try falling back to the RawData endpoint
-            error_str = str(error)
-            
-            if "invalid endpoint" in error_str.lower() or "invalid power meter" in error_str.lower() or "malformed request" in error_str.lower():
-                # Try RawData instead
-                _LOGGER.debug(f"Falling back to RawData endpoint for device {device_id}")
-                return self._make_request("RawData", {"DeviceId": device_id})
+                            # Generate a key for this device+endpoint combination
+                            cache_key = f"{endpoint}_{device_id}"
+                            
+                            # Check if we have a previous timestamp for this device
+                            if cache_key in self._last_data_timestamp:
+                                old_timestamp = self._last_data_timestamp[cache_key]
+                                
+                                # If the timestamp has changed, log it
+                                if old_timestamp != new_timestamp:
+                                    _LOGGER.info(f"Data updated for {endpoint} device {device_id}: {old_timestamp} -> {new_timestamp}")
+                                    self._last_data_timestamp[cache_key] = new_timestamp
+                            else:
+                                # First time seeing this device
+                                self._last_data_timestamp[cache_key] = new_timestamp
+                                _LOGGER.info(f"Initial data for {endpoint} device {device_id}: {new_timestamp}")
+                    
+                    return result
+                except ValueError as e:
+                    _LOGGER.error(f"Invalid JSON response: {response.text}")
+                    raise LoggameraAPIError(f"Invalid JSON response: {e}")
             else:
-                # Re-raise other errors
+                _LOGGER.error(f"HTTP error {response.status_code}: {response.text}")
+                raise LoggameraAPIError(f"HTTP error {response.status_code}: {response.text}")
+        except requests.exceptions.RequestException as e:
+            _LOGGER.error(f"Request error: {e}")
+            raise LoggameraAPIError(f"Request error: {e}")
+
+    def get_organizations(self):
+        """Get organizations."""
+        return self._make_request(API_ENDPOINT_ORGANIZATIONS)
+
+    def get_devices(self):
+        """Get devices."""
+        if not self.organization_id:
+            _LOGGER.error("Organization ID is required for get_devices")
+            raise LoggameraAPIError("Organization ID is required for get_devices")
+            
+        return self._make_request(API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id})
+
+    def get_device_data(self, device_id, device_type):
+        """Get device data - tries multiple endpoints based on availability.
+        
+        Note: For PowerMeter devices, data typically updates approximately every 30 minutes
+        in the Loggamera backend. More frequent polling will not yield new data until
+        the backend itself updates.
+        """
+        # Create a list of endpoints to try in order of preference
+        endpoints_to_try = []
+        
+        # First, add the device-specific endpoint
+        if device_type == "PowerMeter":
+            endpoints_to_try.append(API_ENDPOINT_POWER_METER)
+        elif device_type == "RoomSensor":
+            endpoints_to_try.append(API_ENDPOINT_ROOM_SENSOR)
+        elif device_type == "WaterMeter":
+            endpoints_to_try.append(API_ENDPOINT_WATER_METER)
+        elif device_type == "CoolingUnit":
+            endpoints_to_try.append(API_ENDPOINT_COOLING_UNIT)
+        elif device_type == "HeatPump":
+            endpoints_to_try.append(API_ENDPOINT_HEAT_PUMP)
+        
+        # Add RawData as second preference - it often has more detailed info
+        endpoints_to_try.append(API_ENDPOINT_RAW_DATA)
+        
+        # Add GenericDevice as final fallback
+        endpoints_to_try.append(API_ENDPOINT_GENERIC_DEVICE)
+        
+        # Try endpoints in order
+        last_error = None
+        for endpoint in endpoints_to_try:
+            try:
+                # Skip if we know this endpoint is invalid
+                if endpoint in self._endpoint_cache and self._endpoint_cache[endpoint] is False:
+                    continue
+                
+                response = self._make_request(endpoint, {"DeviceId": device_id})
+                
+                # Check if this endpoint is invalid
+                if "Error" in response and response["Error"] and "Message" in response["Error"] and response["Error"]["Message"] == "invalid endpoint":
+                    continue
+                
+                # Check if we got valid data
+                if "Data" in response and "Values" in response["Data"] and response["Data"]["Values"]:
+                    return response
+            except LoggameraAPIError as e:
+                _LOGGER.debug(f"Error with endpoint {endpoint}: {e}")
+                last_error = e
+                continue
+        
+        # If we get here, all endpoints failed
+        if last_error:
+            raise last_error
+        else:
+            raise LoggameraAPIError(f"All endpoints failed for device {device_id}")
+
+    def get_raw_data(self, device_id):
+        """Get raw device data."""
+        return self._make_request(API_ENDPOINT_RAW_DATA, {
+            "DeviceId": device_id,
+        })
+
+    def get_capabilities(self, device_id):
+        """Get device capabilities."""
+        try:
+            return self._make_request(API_ENDPOINT_CAPABILITIES, {"DeviceId": device_id})
+        except LoggameraAPIError as e:
+            # Don't raise error if endpoint is not available
+            if "invalid endpoint" in str(e):
+                _LOGGER.warning(f"Capabilities endpoint not available for device {device_id}")
+                return {"Data": {"ReadCapabilities": [], "WriteCapabilities": []}, "Error": None}
+            else:
                 raise
 
-    def _get_endpoint_for_device_type(self, device_type: str) -> str:
-        """Map device type to API endpoint."""
-        # Map known device types to endpoints
-        type_to_endpoint = {
-            "PowerMeter": "PowerMeter",
-            "RoomSensor": "RoomSensor",
-            "WaterMeter": "WaterMeter",
-            "CoolingUnit": "CoolingUnit",
-            "HeatPump": "HeatPump",
-            "GenericDevice": "GenericDevice",
-        }
+    def get_scenarios(self):
+        """Get scenarios."""
+        if not self.organization_id:
+            _LOGGER.error("Organization ID is required for get_scenarios")
+            return {"Data": {"Scenarios": []}, "Error": None}
+            
+        try:
+            return self._make_request(API_ENDPOINT_SCENARIOS, {"OrganizationId": self.organization_id})
+        except LoggameraAPIError as e:
+            # Don't raise error if endpoint is not available
+            if "invalid endpoint" in str(e):
+                _LOGGER.warning(f"Scenarios endpoint not available for organization {self.organization_id}")
+                return {"Data": {"Scenarios": []}, "Error": None}
+            else:
+                raise
+                
+    def execute_scenario(self, scenario_id, duration_minutes=None):
+        """Execute a scenario."""
+        data = {"ScenarioId": scenario_id}
         
-        # Return the appropriate endpoint or fallback to RawData
-        return type_to_endpoint.get(device_type, "RawData")
+        if duration_minutes is not None:
+            data["DurationMinutes"] = duration_minutes
+            
+        return self._make_request(API_ENDPOINT_EXECUTE_SCENARIO, data)
