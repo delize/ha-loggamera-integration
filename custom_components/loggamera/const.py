@@ -1,8 +1,21 @@
 """Constants for the Loggamera integration."""
-from homeassistant.const import Platform
 
-# Domain
 DOMAIN = "loggamera"
+
+# API URLs and endpoints
+API_URL = "https://platform.loggamera.se/api/v2"
+API_ENDPOINT_ORGANIZATIONS = "Organizations"
+API_ENDPOINT_DEVICES = "Devices"
+API_ENDPOINT_POWER_METER = "PowerMeter"
+API_ENDPOINT_ROOM_SENSOR = "RoomSensor"
+API_ENDPOINT_GENERIC_DEVICE = "GenericDevice" 
+API_ENDPOINT_WATER_METER = "WaterMeter"
+API_ENDPOINT_COOLING_UNIT = "CoolingUnit"
+API_ENDPOINT_HEAT_PUMP = "HeatPump"
+API_ENDPOINT_RAW_DATA = "RawData"
+API_ENDPOINT_CAPABILITIES = "Capabilities"
+API_ENDPOINT_SCENARIOS = "Scenarios"
+API_ENDPOINT_EXECUTE_SCENARIO = "ExecuteScenario"
 
 # Configuration
 CONF_API_KEY = "api_key"
@@ -16,20 +29,13 @@ DEFAULT_SCAN_INTERVAL = 1200
 ATTR_DEVICE_TYPE = "device_type"
 ATTR_DURATION_MINUTES = "duration_minutes"
 
-# API URLs
-API_URL = "https://platform.loggamera.se/api/v2"
-API_ENDPOINT_ORGANIZATIONS = "Organizations"
-API_ENDPOINT_DEVICES = "Devices"
-API_ENDPOINT_POWER_METER = "PowerMeter"
-API_ENDPOINT_ROOM_SENSOR = "RoomSensor"
-API_ENDPOINT_GENERIC_DEVICE = "GenericDevice"
-API_ENDPOINT_WATER_METER = "WaterMeter"
-API_ENDPOINT_COOLING_UNIT = "CoolingUnit"
-API_ENDPOINT_HEAT_PUMP = "HeatPump"
-API_ENDPOINT_RAW_DATA = "RawData"
-API_ENDPOINT_CAPABILITIES = "Capabilities"
-API_ENDPOINT_SCENARIOS = "Scenarios"
-API_ENDPOINT_EXECUTE_SCENARIO = "ExecuteScenario"
+# Sensor types for internal use
+SENSOR_TEMPERATURE = "temperature"
+SENSOR_HUMIDITY = "humidity"
+SENSOR_ENERGY = "energy"
+SENSOR_POWER = "power"
+SENSOR_WATER = "water"
+SENSOR_VALUE = "value"
 
-# Platforms
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH]
+# Platform definitions
+PLATFORMS = ["sensor"]
