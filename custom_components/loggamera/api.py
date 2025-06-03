@@ -171,19 +171,64 @@ class LoggameraAPI:
         return self._make_request(API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id})
 
     def get_device_data(self, device_id, device_type):
-        """Get device data - tries multiple endpoints based on availability.
+        """Get device data from appropriate endpoints.
         
-        Note: For PowerMeter devices, data typically updates approximately every 30 minutes
-        in the Loggamera backend. More frequent polling will not yield new data until
-        the backend itself updates.
+        For PowerMeter devices, this will attempt to fetch both RawData and PowerMeter data
+        and combine them for the most complete picture.
         """
-        # Create a list of endpoints to try in order of preference
+        combined_data = {"Data": {"Values": []}, "Error": None}
+        
+        # For PowerMeter devices, try to fetch both RawData and PowerMeter data
+        if device_type == "PowerMeter":
+            # Try RawData first as it has more detailed metrics
+            try:
+                raw_data = self._make_request(API_ENDPOINT_RAW_DATA, {"DeviceId": device_id})
+                if "Data" in raw_data and raw_data["Data"] is not None and "Values" in raw_data["Data"]:
+                    combined_data["Data"]["Values"].extend(raw_data["Data"]["Values"])
+                    
+                    # Save timestamp if available
+                    if "LogDateTimeUtc" in raw_data["Data"]:
+                        combined_data["Data"]["LogDateTimeUtc"] = raw_data["Data"]["LogDateTimeUtc"]
+                    
+                    _LOGGER.debug(f"Got {len(raw_data['Data']['Values'])} values from RawData endpoint")
+                    combined_data["_raw_data_used"] = True
+            except LoggameraAPIError as e:
+                _LOGGER.debug(f"Error getting RawData: {e}")
+            
+            # Also try PowerMeter endpoint as it might have different values
+            try:
+                current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                power_meter_data = self._make_request(API_ENDPOINT_POWER_METER, {
+                    "DeviceId": device_id,
+                    "DateTimeUtc": current_time
+                })
+                
+                if "Data" in power_meter_data and power_meter_data["Data"] is not None and "Values" in power_meter_data["Data"]:
+                    # If we didn't get a timestamp from RawData, use the one from PowerMeter
+                    if "LogDateTimeUtc" not in combined_data["Data"] and "LogDateTimeUtc" in power_meter_data["Data"]:
+                        combined_data["Data"]["LogDateTimeUtc"] = power_meter_data["Data"]["LogDateTimeUtc"]
+                    
+                    # Add values from PowerMeter that aren't already in the combined data
+                    existing_names = [v["Name"] for v in combined_data["Data"]["Values"]]
+                    new_values = [v for v in power_meter_data["Data"]["Values"] if v["Name"] not in existing_names]
+                    
+                    combined_data["Data"]["Values"].extend(new_values)
+                    _LOGGER.debug(f"Added {len(new_values)} values from PowerMeter endpoint")
+                    combined_data["_power_meter_used"] = True
+            except LoggameraAPIError as e:
+                _LOGGER.debug(f"Error getting PowerMeter data: {e}")
+            
+            # Check if we got any data
+            if not combined_data["Data"]["Values"]:
+                _LOGGER.error(f"Failed to get any data for PowerMeter device {device_id}")
+                raise LoggameraAPIError(f"No data found for PowerMeter device {device_id}")
+            
+            return combined_data
+        
+        # For other device types, try their specific endpoint
         endpoints_to_try = []
         
-        # First, add the device-specific endpoint
-        if device_type == "PowerMeter":
-            endpoints_to_try.append(API_ENDPOINT_POWER_METER)
-        elif device_type == "RoomSensor":
+        if device_type == "RoomSensor":
             endpoints_to_try.append(API_ENDPOINT_ROOM_SENSOR)
         elif device_type == "WaterMeter":
             endpoints_to_try.append(API_ENDPOINT_WATER_METER)
@@ -192,10 +237,8 @@ class LoggameraAPI:
         elif device_type == "HeatPump":
             endpoints_to_try.append(API_ENDPOINT_HEAT_PUMP)
         
-        # Add RawData as second preference - it often has more detailed info
+        # Add RawData and GenericDevice as fallbacks for all device types
         endpoints_to_try.append(API_ENDPOINT_RAW_DATA)
-        
-        # Add GenericDevice as final fallback
         endpoints_to_try.append(API_ENDPOINT_GENERIC_DEVICE)
         
         # Try endpoints in order
@@ -209,11 +252,13 @@ class LoggameraAPI:
                 response = self._make_request(endpoint, {"DeviceId": device_id})
                 
                 # Check if this endpoint is invalid
-                if "Error" in response and response["Error"] and "Message" in response["Error"] and response["Error"]["Message"] == "invalid endpoint":
+                if "Error" in response and response["Error"] and isinstance(response["Error"], dict) and "Message" in response["Error"] and response["Error"]["Message"] == "invalid endpoint":
                     continue
                 
                 # Check if we got valid data
                 if "Data" in response and "Values" in response["Data"] and response["Data"]["Values"]:
+                    # Add the endpoint info to the response for debugging/tracking
+                    response["_endpoint_used"] = endpoint
                     return response
             except LoggameraAPIError as e:
                 _LOGGER.debug(f"Error with endpoint {endpoint}: {e}")
