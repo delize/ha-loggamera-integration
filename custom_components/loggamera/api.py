@@ -65,98 +65,47 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
-    def _make_request(self, endpoint, data=None):
-        """Make a request to the API."""
-        # Check if we already know this endpoint is invalid
-        if endpoint in self._endpoint_cache and self._endpoint_cache[endpoint] is False:
-            _LOGGER.debug(f"Skipping known invalid endpoint: {endpoint}")
-            return {"Data": {}, "Error": {"Message": "invalid endpoint"}}
-            
+    def _make_request(self, endpoint, data):
+        """Make a request to the Loggamera API."""
         url = f"{API_URL}/{endpoint}"
+        headers = {"Content-Type": "application/json"}
         
-        if data is None:
-            data = {}
-        
-        # Add API key to all requests
-        data["ApiKey"] = self.api_key
-        
-        # Add organization ID if available and not already in data
-        if self.organization_id and "OrganizationId" not in data:
-            # Only add for endpoints that accept OrganizationId
-            if endpoint in [API_ENDPOINT_DEVICES, API_ENDPOINT_SCENARIOS]:
-                data["OrganizationId"] = self.organization_id
+        # Always include the API key
+        if "ApiKey" not in data:
+            data["ApiKey"] = self.api_key
         
         try:
-            # Log the request but mask the API key
-            log_data = data.copy()
-            if "ApiKey" in log_data:
-                log_data["ApiKey"] = "***API_KEY***"
-            _LOGGER.debug(f"Making request to {url}")
+            _LOGGER.debug(f"Making request to {endpoint}")
+            response = requests.post(url, headers=headers, json=data, timeout=30)
             
-            response = self.session.post(
-                url,
-                headers={"Content-Type": CONTENT_TYPE_JSON},
-                data=json.dumps(data),
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                try:
-                    result = response.json()
-                    
-                    # Check if we got a straightforward error message
-                    if isinstance(result, dict) and "Message" in result:
-                        message = result["Message"]
-                        if message == "access denied":
-                            _LOGGER.error(f"API error: {result}")
-                            raise LoggameraAPIError(f"API error: {result}")
-                        elif message == "invalid endpoint":
-                            _LOGGER.warning(f"API endpoint not available: {endpoint}")
-                            # Cache that this endpoint is invalid
-                            self._endpoint_cache[endpoint] = False
-                            return {"Data": {}, "Error": result}
-                    
-                    # Mark the endpoint as valid in our cache
-                    self._endpoint_cache[endpoint] = True
-                    
-                    # Check if there's an error in the error field
-                    if "Error" in result and result["Error"] is not None and result["Error"] != "null" and result["Error"] != "":
-                        error_message = result["Error"]
-                        _LOGGER.error(f"API error: {error_message}")
-                        raise LoggameraAPIError(f"API error: {error_message}")
-                    
-                    # Check if this is a data endpoint that might have a timestamp
-                    if endpoint in [API_ENDPOINT_POWER_METER, API_ENDPOINT_RAW_DATA, API_ENDPOINT_GENERIC_DEVICE]:
-                        device_id = data.get("DeviceId")
-                        if device_id and "Data" in result and "LogDateTimeUtc" in result["Data"]:
-                            new_timestamp = result["Data"]["LogDateTimeUtc"]
-                            
-                            # Generate a key for this device+endpoint combination
-                            cache_key = f"{endpoint}_{device_id}"
-                            
-                            # Check if we have a previous timestamp for this device
-                            if cache_key in self._last_data_timestamp:
-                                old_timestamp = self._last_data_timestamp[cache_key]
-                                
-                                # If the timestamp has changed, log it
-                                if old_timestamp != new_timestamp:
-                                    _LOGGER.info(f"Data updated for {endpoint} device {device_id}: {old_timestamp} -> {new_timestamp}")
-                                    self._last_data_timestamp[cache_key] = new_timestamp
-                            else:
-                                # First time seeing this device
-                                self._last_data_timestamp[cache_key] = new_timestamp
-                                _LOGGER.info(f"Initial data for {endpoint} device {device_id}: {new_timestamp}")
-                    
-                    return result
-                except ValueError as e:
-                    _LOGGER.error(f"Invalid JSON response: {response.text}")
-                    raise LoggameraAPIError(f"Invalid JSON response: {e}")
-            else:
+            if response.status_code != 200:
                 _LOGGER.error(f"HTTP error {response.status_code}: {response.text}")
                 raise LoggameraAPIError(f"HTTP error {response.status_code}: {response.text}")
-        except requests.exceptions.RequestException as e:
-            _LOGGER.error(f"Request error: {e}")
-            raise LoggameraAPIError(f"Request error: {e}")
+            
+            try:
+                result = response.json()
+            except ValueError:
+                _LOGGER.error(f"Invalid JSON response: {response.text}")
+                raise LoggameraAPIError(f"Invalid JSON response: {response.text}")
+            
+            # Check for API errors
+            if "Error" in result and result["Error"] is not None:
+                if isinstance(result["Error"], dict) and "Message" in result["Error"]:
+                    error_message = result["Error"]["Message"]
+                    if error_message == "invalid endpoint":
+                        _LOGGER.debug(f"Endpoint {endpoint} is not valid for this device")
+                        self._endpoint_cache[endpoint] = False
+                    else:
+                        _LOGGER.error(f"API error: {error_message}")
+                        raise LoggameraAPIError(f"API error: {error_message}")
+                else:
+                    _LOGGER.error(f"Unknown API error: {result['Error']}")
+                    raise LoggameraAPIError(f"Unknown API error: {result['Error']}")
+            
+            return result
+        except requests.exceptions.RequestException as err:
+            _LOGGER.error(f"Request error: {err}")
+            raise LoggameraAPIError(f"Request error: {err}")
 
     def get_organizations(self):
         """Get organizations."""
@@ -173,53 +122,165 @@ class LoggameraAPI:
     def get_device_data(self, device_id, device_type):
         """Get device data from appropriate endpoints.
         
-        For PowerMeter devices, this will attempt to fetch both RawData and PowerMeter data
+        For PowerMeter devices, this will attempt to fetch both PowerMeter and RawData data
         and combine them for the most complete picture.
         """
-        combined_data = {"Data": {"Values": []}, "Error": None}
-        
-        # For PowerMeter devices, try to fetch both RawData and PowerMeter data
-        if device_type == "PowerMeter":
-            # Try RawData first as it has more detailed metrics
-            try:
-                raw_data = self._make_request(API_ENDPOINT_RAW_DATA, {"DeviceId": device_id})
-                if "Data" in raw_data and raw_data["Data"] is not None and "Values" in raw_data["Data"]:
-                    combined_data["Data"]["Values"].extend(raw_data["Data"]["Values"])
-                    
-                    # Save timestamp if available
-                    if "LogDateTimeUtc" in raw_data["Data"]:
-                        combined_data["Data"]["LogDateTimeUtc"] = raw_data["Data"]["LogDateTimeUtc"]
-                    
-                    _LOGGER.debug(f"Got {len(raw_data['Data']['Values'])} values from RawData endpoint")
-                    combined_data["_raw_data_used"] = True
-            except LoggameraAPIError as e:
-                _LOGGER.debug(f"Error getting RawData: {e}")
+        # Input validation
+        try:
+            device_id = int(device_id)  # Ensure device_id is an integer
+        except (ValueError, TypeError):
+            _LOGGER.error(f"Invalid device ID: {device_id}")
+            raise LoggameraAPIError(f"Invalid device ID: {device_id}")
             
-            # Also try PowerMeter endpoint as it might have different values
+        if not device_type or not isinstance(device_type, str):
+            _LOGGER.error(f"Invalid device type: {device_type}")
+            raise LoggameraAPIError(f"Invalid device type: {device_type}")
+        
+        # For PowerMeter devices, try to fetch both PowerMeter and RawData data
+        if device_type == "PowerMeter":
+            combined_data = {"Data": {"Values": []}, "Error": None}
+            raw_data_used = False
+            power_meter_used = False
+            
+            # Try PowerMeter endpoint FIRST to ensure we have the standard sensors
             try:
-                current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                # Try simple format first (without DateTimeUtc)
                 power_meter_data = self._make_request(API_ENDPOINT_POWER_METER, {
-                    "DeviceId": device_id,
-                    "DateTimeUtc": current_time
+                    "ApiKey": self.api_key,
+                    "DeviceId": device_id
                 })
                 
-                if "Data" in power_meter_data and power_meter_data["Data"] is not None and "Values" in power_meter_data["Data"]:
-                    # If we didn't get a timestamp from RawData, use the one from PowerMeter
-                    if "LogDateTimeUtc" not in combined_data["Data"] and "LogDateTimeUtc" in power_meter_data["Data"]:
+                # Check if we got valid data
+                if "Data" in power_meter_data and power_meter_data["Data"] is not None and "Values" in power_meter_data["Data"] and power_meter_data["Data"]["Values"]:
+                    # Add all PowerMeter values first to ensure they have priority
+                    combined_data["Data"]["Values"] = power_meter_data["Data"]["Values"]
+                    
+                    if "LogDateTimeUtc" in power_meter_data["Data"]:
                         combined_data["Data"]["LogDateTimeUtc"] = power_meter_data["Data"]["LogDateTimeUtc"]
                     
-                    # Add values from PowerMeter that aren't already in the combined data
-                    existing_names = [v["Name"] for v in combined_data["Data"]["Values"]]
-                    new_values = [v for v in power_meter_data["Data"]["Values"] if v["Name"] not in existing_names]
+                    _LOGGER.debug(f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint")
+                    power_meter_used = True
+                else:
+                    # If simple format didn't work, try with DateTimeUtc
+                    _LOGGER.debug("PowerMeter endpoint without DateTimeUtc returned no values, trying with DateTimeUtc")
+                    current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                    power_meter_data = self._make_request(API_ENDPOINT_POWER_METER, {
+                        "ApiKey": self.api_key,
+                        "DeviceId": device_id,
+                        "DateTimeUtc": current_time
+                    })
                     
-                    combined_data["Data"]["Values"].extend(new_values)
-                    _LOGGER.debug(f"Added {len(new_values)} values from PowerMeter endpoint")
-                    combined_data["_power_meter_used"] = True
+                    if "Data" in power_meter_data and power_meter_data["Data"] is not None and "Values" in power_meter_data["Data"] and power_meter_data["Data"]["Values"]:
+                        # Add all PowerMeter values
+                        combined_data["Data"]["Values"] = power_meter_data["Data"]["Values"]
+                        
+                        if "LogDateTimeUtc" in power_meter_data["Data"]:
+                            combined_data["Data"]["LogDateTimeUtc"] = power_meter_data["Data"]["LogDateTimeUtc"]
+                        
+                        _LOGGER.debug(f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint with DateTimeUtc")
+                        power_meter_used = True
+                    else:
+                        _LOGGER.debug("PowerMeter endpoint returned no values with either format")
             except LoggameraAPIError as e:
                 _LOGGER.debug(f"Error getting PowerMeter data: {e}")
             
+            # Then try RawData to add additional detailed metrics
+            try:
+                # Use simple format for RawData
+                raw_data = self._make_request(API_ENDPOINT_RAW_DATA, {
+                    "ApiKey": self.api_key,
+                    "DeviceId": device_id
+                })
+                if "Data" in raw_data and raw_data["Data"] is not None and "Values" in raw_data["Data"]:
+                    # If we didn't get a timestamp from PowerMeter, use the one from RawData
+                    if "LogDateTimeUtc" not in combined_data["Data"] and "LogDateTimeUtc" in raw_data["Data"]:
+                        combined_data["Data"]["LogDateTimeUtc"] = raw_data["Data"]["LogDateTimeUtc"]
+                    
+                    # Create synthetic PowerMeter values if none were found
+                    if not power_meter_used:
+                        # Find energy and power values in RawData to create equivalent PowerMeter values
+                        for value in raw_data["Data"]["Values"]:
+                            if value.get("Name") == "544352":  # Energy imported
+                                # Create ConsumedTotalInkWh equivalent
+                                synthetic_value = {
+                                    "Name": "ConsumedTotalInkWh",
+                                    "ClearTextName": "Total förbrukning",
+                                    "ValueType": "DECIMAL",
+                                    "Value": value.get("Value", "0"),
+                                    "UnitType": "KwH",
+                                    "UnitPresentation": "kWh",
+                                    "_synthetic": True  # Mark as synthetic for debugging
+                                }
+                                combined_data["Data"]["Values"].append(synthetic_value)
+                                _LOGGER.debug(f"Created synthetic ConsumedTotalInkWh from RawData")
+                            
+                            if value.get("Name") == "544399":  # Power
+                                # Convert from W to kW for PowerInkW
+                                try:
+                                    power_w = float(value.get("Value", "0"))
+                                    power_kw = power_w / 1000.0
+                                    
+                                    # Create PowerInkW equivalent
+                                    synthetic_value = {
+                                        "Name": "PowerInkW",
+                                        "ClearTextName": "Effekt",
+                                        "ValueType": "DECIMAL",
+                                        "Value": str(power_kw),
+                                        "UnitType": "KW",
+                                        "UnitPresentation": "kW",
+                                        "_synthetic": True  # Mark as synthetic for debugging
+                                    }
+                                    combined_data["Data"]["Values"].append(synthetic_value)
+                                    _LOGGER.debug(f"Created synthetic PowerInkW from RawData")
+                                except (ValueError, TypeError):
+                                    _LOGGER.debug(f"Could not convert RawData power value to kW")
+                    
+                    # Add values from RawData that aren't already in the combined data
+                    existing_names = [v.get("Name") for v in combined_data["Data"]["Values"]]
+                    existing_cleartext = [v.get("ClearTextName") for v in combined_data["Data"]["Values"] if v.get("ClearTextName")]
+                    
+                    for value in raw_data["Data"]["Values"]:
+                        # Skip if the Name already exists
+                        if value.get("Name") in existing_names:
+                            continue
+                        
+                        # Also skip if there's a clear text name match to avoid duplicates
+                        clear_name = value.get("ClearTextName")
+                        if clear_name and clear_name in existing_cleartext:
+                            continue
+                        
+                        # Add this unique value
+                        combined_data["Data"]["Values"].append(value)
+                        existing_names.append(value.get("Name"))
+                        if clear_name:
+                            existing_cleartext.append(clear_name)
+                    
+                    _LOGGER.debug(f"Added additional values from RawData endpoint")
+                    raw_data_used = True
+                else:
+                    _LOGGER.debug("No valid data from RawData endpoint")
+            except LoggameraAPIError as e:
+                _LOGGER.debug(f"Error getting RawData: {e}")
+            
+            # Record which endpoints were used
+            if raw_data_used:
+                combined_data["_raw_data_used"] = True
+            if power_meter_used:
+                combined_data["_power_meter_used"] = True
+                
             # Check if we got any data
             if not combined_data["Data"]["Values"]:
+                # If we got no data from either endpoint, try the other standard endpoints
+                _LOGGER.warning(f"No data from PowerMeter or RawData endpoints, trying GenericDevice")
+                try:
+                    generic_data = self._make_request(API_ENDPOINT_GENERIC_DEVICE, {"DeviceId": device_id})
+                    if "Data" in generic_data and generic_data["Data"] is not None and "Values" in generic_data["Data"]:
+                        combined_data = generic_data
+                        combined_data["_generic_device_used"] = True
+                        return combined_data
+                except LoggameraAPIError as e:
+                    _LOGGER.debug(f"Error getting GenericDevice data: {e}")
+                    
                 _LOGGER.error(f"Failed to get any data for PowerMeter device {device_id}")
                 raise LoggameraAPIError(f"No data found for PowerMeter device {device_id}")
             
