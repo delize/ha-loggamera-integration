@@ -1,5 +1,5 @@
 {
-  "title": "Loggamera Integration",
+  "title": "Loggamera",
   "description": "Integration for monitoring electricity, water, and other utilities using Loggamera.",
   "power_sensor": "Power Consumption",
   "water_sensor": "Water Usage",
