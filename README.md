@@ -18,6 +18,10 @@ This integration allows you to monitor your Loggamera devices in Home Assistant.
 - Control scenarios through switches
 - Integration with Home Assistant Energy dashboard
 
+## Example Screenshot
+
+![Example Screenshot of Sensor Data](assets/README/demo-screenshot.png)
+
 ## Installation
 
 ### HACS (Recommended)
@@ -38,8 +42,8 @@ The integration is configured through the Home Assistant UI:
 1. Go to Configuration > Integrations
 2. Click "Add Integration"
 3. Search for "Loggamera"
-4. Enter your API key (found in the Loggamera portal)
-5. Select your organization if multiple are available
+4. Enter your API key (found in the Loggamera portal, you m ay need to reach out to Loggamera)
+
 
 ## Troubleshooting
 
