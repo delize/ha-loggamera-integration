@@ -77,4 +77,4 @@ If you encounter issues, please check the Home Assistant logs first, then open a
 
 ## License
 
-This integration is licensed under MIT License.
+This integration is licensed under AGPL License.
