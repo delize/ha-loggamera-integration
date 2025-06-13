@@ -1,6 +1,5 @@
 """API client for Loggamera."""
 
-import json
 import logging
 import platform
 import ssl
@@ -9,7 +8,6 @@ from datetime import datetime
 
 import certifi
 import requests
-from homeassistant.const import CONTENT_TYPE_JSON
 
 from .const import (
     API_ENDPOINT_CAPABILITIES,
@@ -266,7 +264,7 @@ class LoggameraAPI:
                                 }
                                 combined_data["Data"]["Values"].append(synthetic_value)
                                 _LOGGER.debug(
-                                    f"Created synthetic ConsumedTotalInkWh from RawData"
+                                    "Created synthetic ConsumedTotalInkWh from RawData"
                                 )
 
                             if value.get("Name") == "544399":  # Power
@@ -289,11 +287,11 @@ class LoggameraAPI:
                                         synthetic_value
                                     )
                                     _LOGGER.debug(
-                                        f"Created synthetic PowerInkW from RawData"
+                                        "Created synthetic PowerInkW from RawData"
                                     )
                                 except (ValueError, TypeError):
                                     _LOGGER.debug(
-                                        f"Could not convert RawData power value to kW"
+                                        "Could not convert RawData power value to kW"
                                     )
 
                     # Add values from RawData that aren't already in the combined data
@@ -322,7 +320,7 @@ class LoggameraAPI:
                         if clear_name:
                             existing_cleartext.append(clear_name)
 
-                    _LOGGER.debug(f"Added additional values from RawData endpoint")
+                    _LOGGER.debug("Added additional values from RawData endpoint")
                     raw_data_used = True
                 else:
                     _LOGGER.debug("No valid data from RawData endpoint")
@@ -339,7 +337,7 @@ class LoggameraAPI:
             if not combined_data["Data"]["Values"]:
                 # If we got no data from either endpoint, try the other standard endpoints
                 _LOGGER.warning(
-                    f"No data from PowerMeter or RawData endpoints, trying GenericDevice"
+                    "No data from PowerMeter or RawData endpoints, trying GenericDevice"
                 )
                 try:
                     generic_data = self._make_request(

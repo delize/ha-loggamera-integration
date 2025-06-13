@@ -1,7 +1,7 @@
 """Button platform for Loggamera integration."""
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -10,7 +10,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import LoggameraAPI, LoggameraAPIError
+from .api import LoggameraAPIError
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
