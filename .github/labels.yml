@@ -1,0 +1,37 @@
+# Version bump labels for automatic semantic versioning
+- name: "patch"
+  color: "0E8A16"
+  description: "Patch version bump (bug fixes, documentation)"
+  
+- name: "minor"
+  color: "1D76DB"
+  description: "Minor version bump (new features, non-breaking changes)"
+  
+- name: "major"
+  color: "B60205"
+  description: "Major version bump (breaking changes)"
+  
+- name: "breaking"
+  color: "B60205"
+  description: "Breaking change (forces major version bump)"
+
+# Additional semantic labels
+- name: "feature"
+  color: "0052CC"
+  description: "New feature (minor version bump)"
+  
+- name: "enhancement"
+  color: "A2EEEF"
+  description: "Enhancement to existing feature (minor version bump)"
+
+- name: "bug"
+  color: "D73A4A"
+  description: "Bug fix (patch version bump)"
+
+- name: "documentation"
+  color: "0075CA"
+  description: "Documentation updates (patch version bump)"
+
+- name: "dependencies"
+  color: "0366D6"
+  description: "Dependency updates (patch version bump)"
