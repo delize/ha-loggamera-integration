@@ -84,7 +84,7 @@ jobs:
                 
                 Would you like to automatically fix these issues? Simply comment on this PR:
                 
-                **\`/fix-formatting\`**
+                \`/fix-formatting\`
                 
                 This will:
                 - Format code with Black
