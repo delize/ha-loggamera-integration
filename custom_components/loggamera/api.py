@@ -181,13 +181,13 @@ class LoggameraAPI:
                         ]["LogDateTimeUtc"]
 
                     _LOGGER.debug(
-                        f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint"
+                        f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint"  # noqa: E501
                     )
                     power_meter_used = True
                 else:
                     # If simple format didn't work, try with DateTimeUtc
                     _LOGGER.debug(
-                        "PowerMeter endpoint without DateTimeUtc returned no values, trying with DateTimeUtc"
+                        "PowerMeter endpoint without DateTimeUtc returned no values, trying with DateTimeUtc"  # noqa: E501
                     )
                     current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                     power_meter_data = self._make_request(
@@ -216,7 +216,7 @@ class LoggameraAPI:
                             ]["LogDateTimeUtc"]
 
                         _LOGGER.debug(
-                            f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint with DateTimeUtc"
+                            f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint with DateTimeUtc"  # noqa: E501
                         )
                         power_meter_used = True
                     else:
@@ -238,7 +238,7 @@ class LoggameraAPI:
                     and raw_data["Data"] is not None
                     and "Values" in raw_data["Data"]
                 ):
-                    # If we didn't get a timestamp from PowerMeter, use the one from RawData
+                    # If we didn't get a timestamp from PowerMeter, use the one from RawData  # noqa: E501
                     if (
                         "LogDateTimeUtc" not in combined_data["Data"]
                         and "LogDateTimeUtc" in raw_data["Data"]
