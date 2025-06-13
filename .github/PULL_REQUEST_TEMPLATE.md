@@ -11,10 +11,20 @@ Brief description of changes made in this PR.
 - [ ] ♻️ Code refactoring - **PATCH version bump**
 
 ## Version Bump
-When this PR is merged, the version will be automatically bumped based on the type of change:
-- **PATCH** (0.0.X): Bug fixes, documentation updates, refactoring
-- **MINOR** (0.X.0): New features, enhancements
-- **MAJOR** (X.0.0): Breaking changes
+When this PR is merged, the version will be automatically bumped based on the type of change in the title:
+How It Works:
+
+  For Automatic Releases (Most Common):
+  1. Create PR with appropriate title:
+    - [BUG] Fix sensor reading → PATCH bump (0.1.23 → 0.1.24)
+    - [FEATURE] Add water meter support → MINOR bump (0.1.23 → 0.2.0)
+    - [BREAKING] Change API structure → MAJOR bump (0.1.23 → 1.0.0)
+  2. Merge PR → Automatically:
+    - Detects version bump type
+    - Updates manifest.json
+    - Creates git tag
+    - Generates release with notes
+    - Comments on PR with release URL
 
 To override the automatic detection, add one of these labels to the PR:
 - `patch` - Force patch version bump
