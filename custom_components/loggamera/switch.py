@@ -1,6 +1,7 @@
 """Support for Loggamera switches."""
-import logging
+
 import asyncio
+import logging
 from typing import Any, Dict, Optional
 
 from homeassistant.components.switch import SwitchEntity
@@ -11,9 +12,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import LoggameraAPIError
-from .const import DOMAIN, ATTR_DEVICE_TYPE, ATTR_DURATION_MINUTES
+from .const import ATTR_DEVICE_TYPE, ATTR_DURATION_MINUTES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -25,16 +27,20 @@ async def async_setup_entry(
     api = hass.data[DOMAIN][entry.entry_id]["api"]
 
     # Check if we have scenarios data
-    if not coordinator.data or "scenarios" not in coordinator.data or not coordinator.data["scenarios"]:
+    if (
+        not coordinator.data
+        or "scenarios" not in coordinator.data
+        or not coordinator.data["scenarios"]
+    ):
         _LOGGER.info("No scenarios available")
         return
-        
+
     # Create switch for each scenario
     switches = []
     for scenario in coordinator.data["scenarios"]:
         switch = LoggameraScenarioSwitch(coordinator, api, scenario, hass)
         switches.append(switch)
-    
+
     if switches:
         async_add_entities(switches)
         _LOGGER.info(f"Adding {len(switches)} Loggamera scenario switches")
@@ -91,21 +97,21 @@ class LoggameraScenarioSwitch(CoordinatorEntity, SwitchEntity):
             result = await self._hass.async_add_executor_job(
                 self._api.execute_scenario, self._scenario_id
             )
-            
+
             if result and "Data" in result:
                 self._is_on = True
                 self.async_write_ha_state()
-                
+
                 # Auto turn off after a short delay
                 async def async_turn_off_later():
                     """Turn off the switch after a delay."""
                     await asyncio.sleep(2)
                     self._is_on = False
                     self.async_write_ha_state()
-                
+
                 # Schedule turn off
                 asyncio.create_task(async_turn_off_later())
-                
+
         except LoggameraAPIError as err:
             _LOGGER.error(f"Failed to execute scenario: {err}")
 
@@ -120,12 +126,12 @@ class LoggameraScenarioSwitch(CoordinatorEntity, SwitchEntity):
     def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
         """Return extra state attributes."""
         attrs = {}
-        
+
         if self._scenario:
             attrs["scenario_id"] = self._scenario_id
             if "Description" in self._scenario:
                 attrs["description"] = self._scenario["Description"]
             if "DurationMinutes" in self._scenario:
                 attrs[ATTR_DURATION_MINUTES] = self._scenario["DurationMinutes"]
-                
+
         return attrs
