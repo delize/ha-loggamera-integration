@@ -32,23 +32,57 @@ jobs:
 
       - name: Determine version bump type
         id: bump_type
-        run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_LABELS="${{ github.event.pull_request.labels.*.name }}"
-          
-          if [[ "$PR_TITLE" =~ \[BREAKING\]|\[MAJOR\] ]] || [[ "$PR_LABELS" =~ breaking|major ]]; then
-            echo "type=major" >> $GITHUB_OUTPUT
-            echo "should_bump=true" >> $GITHUB_OUTPUT
-          elif [[ "$PR_TITLE" =~ \[FEATURE\]|\[MINOR\] ]] || [[ "$PR_LABELS" =~ feature|enhancement|minor ]]; then
-            echo "type=minor" >> $GITHUB_OUTPUT
-            echo "should_bump=true" >> $GITHUB_OUTPUT
-          elif [[ "$PR_TITLE" =~ \[PATCH\] ]] || [[ "$PR_LABELS" =~ patch|bug|documentation|dependencies ]]; then
-            echo "type=patch" >> $GITHUB_OUTPUT
-            echo "should_bump=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_bump=false" >> $GITHUB_OUTPUT
-            echo "No version bump indicators found (no labels or title keywords)" >> $GITHUB_STEP_SUMMARY
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prTitle = context.payload.pull_request.title;
+            const prLabels = context.payload.pull_request.labels.map(label => label.name);
+            
+            console.log(`PR Title: "${prTitle}"`);
+            console.log(`PR Labels: [${prLabels.join(', ')}]`);
+            
+            let bumpType = null;
+            let shouldBump = false;
+            
+            // Check title patterns
+            if (/\[BREAKING\]|\[MAJOR\]/i.test(prTitle)) {
+              bumpType = 'major';
+              shouldBump = true;
+              console.log('✅ Major bump detected from title');
+            } else if (/\[FEATURE\]|\[MINOR\]/i.test(prTitle)) {
+              bumpType = 'minor';
+              shouldBump = true;
+              console.log('✅ Minor bump detected from title');
+            } else if (/\[PATCH\]/i.test(prTitle)) {
+              bumpType = 'patch';
+              shouldBump = true;
+              console.log('✅ Patch bump detected from title');
+            }
+            
+            // Check labels (override title if found)
+            if (prLabels.some(label => ['breaking', 'major'].includes(label))) {
+              bumpType = 'major';
+              shouldBump = true;
+              console.log('✅ Major bump detected from labels');
+            } else if (prLabels.some(label => ['feature', 'enhancement', 'minor'].includes(label))) {
+              bumpType = 'minor';
+              shouldBump = true;
+              console.log('✅ Minor bump detected from labels');
+            } else if (prLabels.some(label => ['patch', 'bug', 'documentation', 'dependencies'].includes(label))) {
+              bumpType = 'patch';
+              shouldBump = true;
+              console.log('✅ Patch bump detected from labels');
+            }
+            
+            if (shouldBump) {
+              core.setOutput('type', bumpType);
+              core.setOutput('should_bump', 'true');
+              core.summary.addRaw(`🔖 **Version Bump Detected**: ${bumpType.toUpperCase()}`);
+            } else {
+              core.setOutput('should_bump', 'false');
+              core.summary.addRaw('❌ **No Version Bump**: No labels or title keywords found');
+              console.log('❌ No version bump indicators found');
+            }
 
       - name: Calculate new version
         id: new_version
