@@ -25,18 +25,72 @@ jobs:
           pip install black flake8 isort
       
       - name: Check code formatting with Black
+        id: black-check
         run: |
-          black --check --diff custom_components/ || echo "Black formatting issues found but not failing build"
-        continue-on-error: true
+          if ! black --check --diff custom_components/; then
+            echo "BLACK_FAILED=true" >> $GITHUB_OUTPUT
+            echo "❌ Black formatting issues found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ Black formatting passed" >> $GITHUB_STEP_SUMMARY
+          fi
       
       - name: Check import sorting with isort
+        id: isort-check
         run: |
-          isort --check-only --diff custom_components/ || echo "Import sorting issues found but not failing build"
-        continue-on-error: true
+          if ! isort --check-only --diff custom_components/; then
+            echo "ISORT_FAILED=true" >> $GITHUB_OUTPUT
+            echo "❌ Import sorting issues found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ Import sorting passed" >> $GITHUB_STEP_SUMMARY
+          fi
       
       - name: Lint with flake8
+        id: flake8-check
         run: |
-          # Stop the build if there are Python syntax errors or undefined names
-          flake8 custom_components/ --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Critical flake8 errors found"
-          # Exit-zero treats all errors as warnings
-          flake8 custom_components/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+          if ! flake8 custom_components/ --count --max-complexity=10 --max-line-length=88 --statistics; then
+            echo "FLAKE8_FAILED=true" >> $GITHUB_OUTPUT
+            echo "❌ Flake8 linting issues found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ Flake8 linting passed" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Comment with auto-fix option
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const fixUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/auto-fix-code.yaml`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚨 Code Quality Check Failed
+              
+              Your PR has code formatting or linting issues that need to be addressed.
+              
+              **View the detailed report:** [Check Run Details](${runUrl})
+              
+              ### 🔧 Auto-Fix Available
+              
+              Would you like to automatically fix these issues? Simply comment on this PR:
+              
+              **\`/fix-formatting\`**
+              
+              This will:
+              - Format code with Black
+              - Sort imports with isort  
+              - Fix auto-fixable flake8 issues
+              - Commit the changes to your PR branch
+              
+              **Who can use auto-fix:**
+              - 👤 PR author
+              - 👑 Repository owner  
+              - 🤝 Repository collaborators with write access
+              
+              Or you can fix these issues manually and push the changes.`
+            })
