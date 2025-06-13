@@ -108,20 +108,22 @@ jobs:
         id: release_notes
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
           PR_BODY="${{ github.event.pull_request.body }}"
           
           # Create release notes
-          cat > release_notes.md << 'EOF'
+          cat > release_notes.md << EOF
           ## Changes
           
-          ### ${{ steps.bump_type.outputs.type }} Release
+          ### ${BUMP_TYPE} Release
           
-          **Merged PR:** #$PR_NUMBER - $PR_TITLE by @$PR_AUTHOR
+          **Merged PR:** #${PR_NUMBER} - ${PR_TITLE} by @${PR_AUTHOR}
           
-          $PR_BODY
+          ${PR_BODY}
           
           ## Installation
           
@@ -133,7 +135,7 @@ jobs:
           
           ### Manual Installation
           1. Download the latest release
-          2. Extract to `custom_components/loggamera`
+          2. Extract to \`custom_components/loggamera\`
           3. Restart Home Assistant
           
           ## Supported Devices
@@ -145,7 +147,7 @@ jobs:
           
           ---
           
-          **Full Changelog**: https://github.com/delize/home-assistant-loggamera-integration/compare/v${{ steps.current_version.outputs.version }}...v$NEW_VERSION
+          **Full Changelog**: https://github.com/delize/home-assistant-loggamera-integration/compare/v${CURRENT_VERSION}...v${NEW_VERSION}
           EOF
           
           echo "Release notes generated"
