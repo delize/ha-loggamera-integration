@@ -26,7 +26,7 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
 
 ## Example Screenshot
 
-![Example Screenshot of Sensor Data](assets/README/demo-screenshot.png)
+![Example Screenshot of Sensor Data](docs/assets/README/demo-screenshot.png)
 
 ## Installation
 

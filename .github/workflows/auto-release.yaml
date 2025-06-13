@@ -1,0 +1,181 @@
+name: Auto Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  auto-version-and-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(python -c "import json; print(json.load(open('custom_components/loggamera/manifest.json'))['version'])")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_LABELS="${{ github.event.pull_request.labels.*.name }}"
+          
+          # Determine bump type based on PR title and labels
+          if [[ "$PR_TITLE" =~ \[BREAKING\]|\[MAJOR\] ]] || [[ "$PR_LABELS" =~ breaking|major ]]; then
+            echo "type=major" >> $GITHUB_OUTPUT
+            echo "Detected major version bump"
+          elif [[ "$PR_TITLE" =~ \[FEATURE\]|\[MINOR\] ]] || [[ "$PR_LABELS" =~ feature|enhancement|minor ]]; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+            echo "Detected minor version bump"
+          else
+            echo "type=patch" >> $GITHUB_OUTPUT
+            echo "Detected patch version bump"
+          fi
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
+          
+          # Split version into parts
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Bump version based on type
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update manifest.json
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          python -c "
+          import json
+          with open('custom_components/loggamera/manifest.json', 'r') as f:
+              manifest = json.load(f)
+          manifest['version'] = '$NEW_VERSION'
+          with open('custom_components/loggamera/manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=2)
+          "
+          echo "Updated manifest.json to version $NEW_VERSION"
+
+      - name: Commit version bump
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add custom_components/loggamera/manifest.json
+          git commit -m "🔖 Bump version to $NEW_VERSION"
+          git push
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          
+          # Create release notes
+          cat > release_notes.md << 'EOF'
+          ## Changes
+          
+          ### ${{ steps.bump_type.outputs.type }} Release
+          
+          **Merged PR:** #$PR_NUMBER - $PR_TITLE by @$PR_AUTHOR
+          
+          $PR_BODY
+          
+          ## Installation
+          
+          ### HACS (Recommended)
+          1. Go to HACS -> Integrations
+          2. Search for "Loggamera"
+          3. Click Install
+          4. Restart Home Assistant
+          
+          ### Manual Installation
+          1. Download the latest release
+          2. Extract to `custom_components/loggamera`
+          3. Restart Home Assistant
+          
+          ## Supported Devices
+          - PowerMeter (Electricity meters)
+          - RoomSensor (Temperature and humidity sensors)
+          - WaterMeter (Water meters)
+          - CoolingUnit
+          - HeatPump
+          
+          ---
+          
+          **Full Changelog**: https://github.com/delize/home-assistant-loggamera-integration/compare/v${{ steps.current_version.outputs.version }}...v$NEW_VERSION
+          EOF
+          
+          echo "Release notes generated"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.new_version.outputs.version }}"
+          name: "Release v${{ steps.new_version.outputs.version }}"
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎉 **Release Created!**
+              
+              Version \`v${{ steps.new_version.outputs.version }}\` has been automatically released.
+              
+              **Release Type:** ${{ steps.bump_type.outputs.type }}
+              **Release URL:** https://github.com/delize/home-assistant-loggamera-integration/releases/tag/v${{ steps.new_version.outputs.version }}
+              
+              The new version is now available for installation via HACS.`
+            })

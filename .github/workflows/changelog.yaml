@@ -1,0 +1,73 @@
+name: Update Changelog
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Update Changelog
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Get release information
+            const release = context.payload.release;
+            const version = release.tag_name;
+            const releaseDate = new Date(release.published_at).toISOString().split('T')[0];
+            const releaseBody = release.body;
+            
+            // Create changelog entry
+            const changelogEntry = `## [${version}] - ${releaseDate}
+            
+            ${releaseBody}
+            
+            **Release URL:** ${release.html_url}
+            
+            `;
+            
+            // Read existing changelog or create new one
+            let changelog = '';
+            try {
+              changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            } catch (error) {
+              changelog = `# Changelog
+            
+            All notable changes to the Loggamera Home Assistant Integration will be documented in this file.
+            
+            The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+            and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+            
+            `;
+            }
+            
+            // Insert new entry after the header
+            const headerEnd = changelog.indexOf('\n\n') + 2;
+            const newChangelog = changelog.slice(0, headerEnd) + changelogEntry + changelog.slice(headerEnd);
+            
+            // Write updated changelog
+            fs.writeFileSync('CHANGELOG.md', newChangelog);
+            
+            console.log(`Added changelog entry for ${version}`);
+
+      - name: Commit changelog update
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "📝 Update changelog for $VERSION" || exit 0
+          git push || exit 0
