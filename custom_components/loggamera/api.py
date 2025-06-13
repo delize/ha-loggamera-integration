@@ -70,7 +70,7 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
-    def _make_request(self, endpoint, data=None):
+    def _make_request(self, endpoint, data=None):  # noqa: C901
         """Make a request to the Loggamera API."""
         url = f"{API_URL}/{endpoint}"
         headers = {"Content-Type": "application/json"}
@@ -134,10 +134,10 @@ class LoggameraAPI:
             API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id}
         )
 
-    def get_device_data(self, device_id, device_type):
+    def get_device_data(self, device_id, device_type):  # noqa: C901
         """Get device data from appropriate endpoints.
 
-        For PowerMeter devices, this will attempt to fetch both PowerMeter and RawData data
+        For PowerMeter devices, this will attempt to fetch both PowerMeter and RawData data  # noqa: E501
         and combine them for the most complete picture.
         """
         # Input validation

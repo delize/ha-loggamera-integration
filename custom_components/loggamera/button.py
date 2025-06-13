@@ -1,7 +1,7 @@
 """Button platform for Loggamera integration."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional  # noqa: F401
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry

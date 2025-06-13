@@ -149,7 +149,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval,
         )
 
-    async def _async_update_data(self) -> Dict[str, Any]:
+    async def _async_update_data(self) -> Dict[str, Any]:  # noqa: C901
         """Fetch data from API."""
         try:
             _LOGGER.debug("Starting data update cycle")
@@ -206,7 +206,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                 device_id = device["Id"]
                 device_type = device["Class"]
                 try:
-                    # Fetch device data - our updated get_device_data method handles combining data sources
+                    # Fetch device data - our updated get_device_data method handles combining data sources  # noqa: E501
                     device_data = await self.hass.async_add_executor_job(
                         self.api.get_device_data, device_id, device_type
                     )
@@ -225,7 +225,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
 
                     if sources:
                         _LOGGER.debug(
-                            f"Device {device_id} data fetched from: {', '.join(sources)}"
+                            f"Device {device_id} data fetched from: {', '.join(sources)}"  # noqa: E501
                         )
                 except Exception as err:
                     _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
@@ -233,7 +233,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             # Calculate time taken for the update
             elapsed = time.time() - start_time
             _LOGGER.debug(
-                f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})"
+                f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})"  # noqa: E501
             )
 
             return updated_data

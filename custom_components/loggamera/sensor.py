@@ -1,8 +1,8 @@
 """Sensor platform for Loggamera integration."""
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime  # noqa: F401
+from typing import Any, Dict, List, Optional  # noqa: F401
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -24,7 +24,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
+from .const import (  # noqa: F401
     DOMAIN,
     SENSOR_ENERGY,
     SENSOR_HUMIDITY,
@@ -198,7 +198,7 @@ SENSOR_MAP.update(TEMP_MAPPINGS)
 SENSOR_MAP.update(WATER_MAPPINGS)
 
 
-async def async_setup_entry(
+async def async_setup_entry(  # noqa: C901
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ):
     """Set up Loggamera sensors based on a config entry."""

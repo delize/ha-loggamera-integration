@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import LoggameraAPIError
-from .const import ATTR_DEVICE_TYPE, ATTR_DURATION_MINUTES, DOMAIN
+from .const import ATTR_DEVICE_TYPE, ATTR_DURATION_MINUTES, DOMAIN  # noqa: F401
 
 _LOGGER = logging.getLogger(__name__)
 

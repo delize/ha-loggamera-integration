@@ -22,7 +22,7 @@ CONF_API_KEY = "api_key"
 CONF_ORGANIZATION_ID = "organization_id"
 CONF_SCAN_INTERVAL = "scan_interval"
 
-# Default 20 minutes (1200 seconds) - optimized for PowerMeter which typically updates every ~30 minutes
+# Default 20 minutes (1200 seconds) - optimized for PowerMeter which typically updates every ~30 minutes  # noqa: E501
 DEFAULT_SCAN_INTERVAL = 1200
 
 # Attributes

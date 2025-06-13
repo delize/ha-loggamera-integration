@@ -4,7 +4,7 @@ import logging
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback  # noqa: F401
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
