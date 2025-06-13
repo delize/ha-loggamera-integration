@@ -1,14 +1,16 @@
 # Loggamera Integration for Home Assistant
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
+[![GitHub license](https://img.shields.io/github/license/delize/home-assistant-loggamera-integration.svg?style=flat-square)](https://github.com/delize/home-assistant-loggamera-integration/blob/main/LICENSE)
 
-[![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/delize/home-assistant-loggamera-integration)](https://github.com/delize/home-assistant-loggamera-integration/releases/)
-[![Latest Stable Release](https://badgen.net/github/release/delize/home-assistant-loggamera-integration/stable)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest)
-[![Latest Pre-Release](https://badgen.net/github/release/delize/home-assistant-loggamera-integration)](https://github.com/delize/home-assistant-loggamera-integration/releases/)
+
+[![Release Date](https://img.shields.io/github/release-date/delize/home-assistant-loggamera-integration?label=Latest%20Release&color=green)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest) [![Latest Stable](https://img.shields.io/github/v/release/delize/home-assistant-loggamera-integration?label=Stable&color=blue)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest) [![Pre-Release Date](https://img.shields.io/github/release-date-pre/delize/home-assistant-loggamera-integration?label=Latest%20Pre-Release&color=orange)](https://github.com/delize/home-assistant-loggamera-integration/releases) [![Latest Pre-Release](https://img.shields.io/github/v/release/delize/home-assistant-loggamera-integration?include_prereleases&label=Pre-Release&color=orange)](https://github.com/delize/home-assistant-loggamera-integration/releases)
+
+
 [![Validate with hassfest](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
 [![HACS Action](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
 [![Code Quality](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml)
 [![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
-[![GitHub license](https://img.shields.io/github/license/delize/home-assistant-loggamera-integration.svg?style=flat-square)](https://github.com/delize/home-assistant-loggamera-integration/blob/main/LICENSE)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
+
 
 This integration allows you to monitor your Loggamera devices in Home Assistant, providing comprehensive energy monitoring and device control capabilities.
 
