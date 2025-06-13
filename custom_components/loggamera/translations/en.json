@@ -1,23 +1,5 @@
 {
   "title": "Loggamera",
-  "description": "Integration for monitoring electricity, water, and other utilities using Loggamera.",
-  "power_sensor": "Power Consumption",
-  "water_sensor": "Water Usage",
-  "electricity": "Electricity",
-  "water": "Water",
-  "api_key": "API Key",
-  "configuration": {
-    "title": "Loggamera Configuration",
-    "api_key_required": "Please provide your Loggamera API key."
-  },
-  "errors": {
-    "invalid_api_key": "The provided API key is invalid.",
-    "connection_failed": "Failed to connect to the Loggamera API.",
-    "data_fetch_failed": "Failed to fetch data from Loggamera."
-  },
-  "success": {
-    "configuration_updated": "Configuration updated successfully."
-  },
   "config": {
     "abort": {
       "already_configured": "This organization is already configured"

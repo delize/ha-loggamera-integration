@@ -11,6 +11,7 @@ import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -28,6 +29,10 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Since this integration only supports config entries and has no YAML configuration,
+# we use the config_entry_only_config_schema helper
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Loggamera integration."""
