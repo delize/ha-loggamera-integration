@@ -10,6 +10,10 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     name: Code Quality Check
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,32 +69,40 @@ jobs:
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const fixUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/auto-fix-code.yaml`;
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚨 Code Quality Check Failed
-              
-              Your PR has code formatting or linting issues that need to be addressed.
-              
-              **View the detailed report:** [Check Run Details](${runUrl})
-              
-              ### 🔧 Auto-Fix Available
-              
-              Would you like to automatically fix these issues? Simply comment on this PR:
-              
-              **\`/fix-formatting\`**
-              
-              This will:
-              - Format code with Black
-              - Sort imports with isort  
-              - Fix auto-fixable flake8 issues
-              - Commit the changes to your PR branch
-              
-              **Who can use auto-fix:**
-              - 👤 PR author
-              - 👑 Repository owner  
-              - 🤝 Repository collaborators with write access
-              
-              Or you can fix these issues manually and push the changes.`
-            })
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🚨 Code Quality Check Failed
+                
+                Your PR has code formatting or linting issues that need to be addressed.
+                
+                **View the detailed report:** [Check Run Details](${runUrl})
+                
+                ### 🔧 Auto-Fix Available
+                
+                Would you like to automatically fix these issues? Simply comment on this PR:
+                
+                **\`/fix-formatting\`**
+                
+                This will:
+                - Format code with Black
+                - Sort imports with isort  
+                - Fix auto-fixable flake8 issues
+                - Commit the changes to your PR branch
+                
+                **Who can use auto-fix:**
+                - 👤 PR author
+                - 👑 Repository owner  
+                - 🤝 Repository collaborators with write access
+                
+                Or you can fix these issues manually and push the changes.`
+              });
+              console.log('✅ Successfully posted auto-fix comment');
+            } catch (error) {
+              console.log('❌ Failed to post comment - may be a permissions issue');
+              console.log('Error type:', error.constructor.name);
+              // Don't log the full error to avoid exposing sensitive data
+              core.warning('Unable to post auto-fix comment. Check workflow permissions.');
+            }
