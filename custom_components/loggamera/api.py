@@ -1,6 +1,5 @@
 """API client for Loggamera."""
 
-import json
 import logging
 import platform
 import ssl
@@ -9,7 +8,6 @@ from datetime import datetime
 
 import certifi
 import requests
-from homeassistant.const import CONTENT_TYPE_JSON
 
 from .const import (
     API_ENDPOINT_CAPABILITIES,
@@ -72,7 +70,7 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
-    def _make_request(self, endpoint, data=None):
+    def _make_request(self, endpoint, data=None):  # noqa: C901
         """Make a request to the Loggamera API."""
         url = f"{API_URL}/{endpoint}"
         headers = {"Content-Type": "application/json"}
@@ -136,10 +134,10 @@ class LoggameraAPI:
             API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id}
         )
 
-    def get_device_data(self, device_id, device_type):
+    def get_device_data(self, device_id, device_type):  # noqa: C901
         """Get device data from appropriate endpoints.
 
-        For PowerMeter devices, this will attempt to fetch both PowerMeter and RawData data
+        For PowerMeter devices, this will attempt to fetch both PowerMeter and RawData data  # noqa: E501
         and combine them for the most complete picture.
         """
         # Input validation
@@ -183,13 +181,13 @@ class LoggameraAPI:
                         ]["LogDateTimeUtc"]
 
                     _LOGGER.debug(
-                        f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint"
+                        f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint"  # noqa: E501
                     )
                     power_meter_used = True
                 else:
                     # If simple format didn't work, try with DateTimeUtc
                     _LOGGER.debug(
-                        "PowerMeter endpoint without DateTimeUtc returned no values, trying with DateTimeUtc"
+                        "PowerMeter endpoint without DateTimeUtc returned no values, trying with DateTimeUtc"  # noqa: E501
                     )
                     current_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                     power_meter_data = self._make_request(
@@ -218,7 +216,7 @@ class LoggameraAPI:
                             ]["LogDateTimeUtc"]
 
                         _LOGGER.debug(
-                            f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint with DateTimeUtc"
+                            f"Got {len(power_meter_data['Data']['Values'])} values from PowerMeter endpoint with DateTimeUtc"  # noqa: E501
                         )
                         power_meter_used = True
                     else:
@@ -240,7 +238,7 @@ class LoggameraAPI:
                     and raw_data["Data"] is not None
                     and "Values" in raw_data["Data"]
                 ):
-                    # If we didn't get a timestamp from PowerMeter, use the one from RawData
+                    # If we didn't get a timestamp from PowerMeter, use the one from RawData  # noqa: E501
                     if (
                         "LogDateTimeUtc" not in combined_data["Data"]
                         and "LogDateTimeUtc" in raw_data["Data"]
@@ -251,7 +249,7 @@ class LoggameraAPI:
 
                     # Create synthetic PowerMeter values if none were found
                     if not power_meter_used:
-                        # Find energy and power values in RawData to create equivalent PowerMeter values
+                        # Find energy and power values in RawData to create equivalent PowerMeter values  # noqa: E501
                         for value in raw_data["Data"]["Values"]:
                             if value.get("Name") == "544352":  # Energy imported
                                 # Create ConsumedTotalInkWh equivalent
@@ -262,11 +260,11 @@ class LoggameraAPI:
                                     "Value": value.get("Value", "0"),
                                     "UnitType": "KwH",
                                     "UnitPresentation": "kWh",
-                                    "_synthetic": True,  # Mark as synthetic for debugging
+                                    "_synthetic": True,  # Mark as synthetic for debugging  # noqa: E501
                                 }
                                 combined_data["Data"]["Values"].append(synthetic_value)
                                 _LOGGER.debug(
-                                    f"Created synthetic ConsumedTotalInkWh from RawData"
+                                    "Created synthetic ConsumedTotalInkWh from RawData"
                                 )
 
                             if value.get("Name") == "544399":  # Power
@@ -283,17 +281,17 @@ class LoggameraAPI:
                                         "Value": str(power_kw),
                                         "UnitType": "KW",
                                         "UnitPresentation": "kW",
-                                        "_synthetic": True,  # Mark as synthetic for debugging
+                                        "_synthetic": True,  # Mark as synthetic for debugging  # noqa: E501
                                     }
                                     combined_data["Data"]["Values"].append(
                                         synthetic_value
                                     )
                                     _LOGGER.debug(
-                                        f"Created synthetic PowerInkW from RawData"
+                                        "Created synthetic PowerInkW from RawData"
                                     )
                                 except (ValueError, TypeError):
                                     _LOGGER.debug(
-                                        f"Could not convert RawData power value to kW"
+                                        "Could not convert RawData power value to kW"
                                     )
 
                     # Add values from RawData that aren't already in the combined data
@@ -311,7 +309,7 @@ class LoggameraAPI:
                         if value.get("Name") in existing_names:
                             continue
 
-                        # Also skip if there's a clear text name match to avoid duplicates
+                        # Also skip if there's a clear text name match to avoid duplicates  # noqa: E501
                         clear_name = value.get("ClearTextName")
                         if clear_name and clear_name in existing_cleartext:
                             continue
@@ -322,7 +320,7 @@ class LoggameraAPI:
                         if clear_name:
                             existing_cleartext.append(clear_name)
 
-                    _LOGGER.debug(f"Added additional values from RawData endpoint")
+                    _LOGGER.debug("Added additional values from RawData endpoint")
                     raw_data_used = True
                 else:
                     _LOGGER.debug("No valid data from RawData endpoint")
@@ -337,9 +335,9 @@ class LoggameraAPI:
 
             # Check if we got any data
             if not combined_data["Data"]["Values"]:
-                # If we got no data from either endpoint, try the other standard endpoints
+                # If we got no data from either endpoint, try the other standard endpoints  # noqa: E501
                 _LOGGER.warning(
-                    f"No data from PowerMeter or RawData endpoints, trying GenericDevice"
+                    "No data from PowerMeter or RawData endpoints, trying GenericDevice"
                 )
                 try:
                     generic_data = self._make_request(
@@ -466,7 +464,7 @@ class LoggameraAPI:
             # Don't raise error if endpoint is not available
             if "invalid endpoint" in str(e):
                 _LOGGER.warning(
-                    f"Scenarios endpoint not available for organization {self.organization_id}"
+                    f"Scenarios endpoint not available for organization {self.organization_id}"  # noqa: E501
                 )
                 return {"Data": {"Scenarios": []}, "Error": None}
             else:

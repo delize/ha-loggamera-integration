@@ -1,10 +1,11 @@
 # Loggamera Integration for Home Assistant
 
 [![GitHub (Pre-)Release Date](https://img.shields.io/github/release-date-pre/delize/home-assistant-loggamera-integration)](https://github.com/delize/home-assistant-loggamera-integration/releases/)
-[![Latest Release](https://badgen.net/github/release/delize/home-assistant-loggamera-integration)](https://github.com/delize/home-assistant-loggamera-integration/releases/)
-[![Validate with hassfest](https://badgen.net/github/checks/delize/home-assistant-loggamera-integration/main/validate)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
-[![HACS Action](https://badgen.net/github/checks/delize/home-assistant-loggamera-integration/main/HACS%20Action)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
-[![Code Quality](https://badgen.net/github/checks/delize/home-assistant-loggamera-integration/main/Code%20Quality%20Check)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml)
+[![Latest Stable Release](https://badgen.net/github/release/delize/home-assistant-loggamera-integration/stable)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest)
+[![Latest Pre-Release](https://badgen.net/github/release/delize/home-assistant-loggamera-integration)](https://github.com/delize/home-assistant-loggamera-integration/releases/)
+[![Validate with hassfest](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
+[![HACS Action](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
+[![Code Quality](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml)
 [![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
 [![GitHub license](https://img.shields.io/github/license/delize/home-assistant-loggamera-integration.svg?style=flat-square)](https://github.com/delize/home-assistant-loggamera-integration/blob/main/LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)

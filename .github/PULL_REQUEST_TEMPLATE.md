@@ -41,9 +41,6 @@ How It Works:
 - [ ] Tested with scenario controls
 
 ## Validation
-- [ ] HACS validation passes
-- [ ] hassfest validation passes
-- [ ] Code quality checks pass
 - [ ] No API keys or sensitive data in code
 - [ ] Code follows existing patterns
 

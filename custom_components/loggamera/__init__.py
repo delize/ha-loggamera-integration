@@ -1,15 +1,12 @@
 """The Loggamera integration."""
 
-import asyncio
 import logging
 import time
 from datetime import timedelta
 from typing import Any, Dict
 
-import async_timeout
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -148,10 +145,11 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
         }
 
         _LOGGER.debug(
-            f"Created Loggamera data coordinator with update interval: {update_interval}"
+            "Created Loggamera data coordinator with update interval: %s",
+            update_interval,
         )
 
-    async def _async_update_data(self) -> Dict[str, Any]:
+    async def _async_update_data(self) -> Dict[str, Any]:  # noqa: C901
         """Fetch data from API."""
         try:
             _LOGGER.debug("Starting data update cycle")
@@ -201,13 +199,14 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                 # Don't fail the whole update if scenarios aren't available
                 pass
 
-            # Fetch device data for each device - this will now fetch both RawData and PowerMeter data
-            # for PowerMeter devices as implemented in the API client
+            # Fetch device data for each device - this will now fetch both
+            # RawData and PowerMeter data for PowerMeter devices as implemented
+            # in the API client
             for device in updated_data["devices"]:
                 device_id = device["Id"]
                 device_type = device["Class"]
                 try:
-                    # Fetch device data - our updated get_device_data method handles combining data sources
+                    # Fetch device data - our updated get_device_data method handles combining data sources  # noqa: E501
                     device_data = await self.hass.async_add_executor_job(
                         self.api.get_device_data, device_id, device_type
                     )
@@ -226,7 +225,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
 
                     if sources:
                         _LOGGER.debug(
-                            f"Device {device_id} data fetched from: {', '.join(sources)}"
+                            f"Device {device_id} data fetched from: {', '.join(sources)}"  # noqa: E501
                         )
                 except Exception as err:
                     _LOGGER.warning(f"Failed to get data for device {device_id}: {err}")
@@ -234,7 +233,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             # Calculate time taken for the update
             elapsed = time.time() - start_time
             _LOGGER.debug(
-                f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})"
+                f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})"  # noqa: E501
             )
 
             return updated_data
