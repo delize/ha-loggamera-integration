@@ -24,6 +24,23 @@ jobs:
       contents: write
     
     steps:
+      - name: Security Check - Admin Only
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor
+            });
+            
+            if (!['admin', 'maintain'].includes(permission.permission)) {
+              core.setFailed(`❌ Access denied. Only repository admins can create releases. Your permission: ${permission.permission}`);
+              return;
+            }
+            
+            console.log(`✅ Admin permission verified for ${context.actor}: ${permission.permission}`);
+      
       - name: Checkout
         uses: actions/checkout@v4
         with:
