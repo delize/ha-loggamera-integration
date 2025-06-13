@@ -260,7 +260,7 @@ class LoggameraAPI:
                                     "Value": value.get("Value", "0"),
                                     "UnitType": "KwH",
                                     "UnitPresentation": "kWh",
-                                    "_synthetic": True,  # Mark as synthetic for debugging
+                                    "_synthetic": True,  # Mark as synthetic for debugging  # noqa: E501
                                 }
                                 combined_data["Data"]["Values"].append(synthetic_value)
                                 _LOGGER.debug(
@@ -281,7 +281,7 @@ class LoggameraAPI:
                                         "Value": str(power_kw),
                                         "UnitType": "KW",
                                         "UnitPresentation": "kW",
-                                        "_synthetic": True,  # Mark as synthetic for debugging
+                                        "_synthetic": True,  # Mark as synthetic for debugging  # noqa: E501
                                     }
                                     combined_data["Data"]["Values"].append(
                                         synthetic_value
@@ -309,7 +309,7 @@ class LoggameraAPI:
                         if value.get("Name") in existing_names:
                             continue
 
-                        # Also skip if there's a clear text name match to avoid duplicates
+                        # Also skip if there's a clear text name match to avoid duplicates  # noqa: E501
                         clear_name = value.get("ClearTextName")
                         if clear_name and clear_name in existing_cleartext:
                             continue
@@ -335,7 +335,7 @@ class LoggameraAPI:
 
             # Check if we got any data
             if not combined_data["Data"]["Values"]:
-                # If we got no data from either endpoint, try the other standard endpoints
+                # If we got no data from either endpoint, try the other standard endpoints  # noqa: E501
                 _LOGGER.warning(
                     "No data from PowerMeter or RawData endpoints, trying GenericDevice"
                 )
