@@ -218,7 +218,7 @@ async def async_setup_entry(  # noqa: C901
         device_name = device.get("Title", f"{device_type} {device_id}")
 
         _LOGGER.debug(
-            f"Setting up sensors for device: {device_name} (ID: {device_id}, Type: {device_type})"
+            f"Setting up sensors for device: {device_name} (ID: {device_id}, Type: {device_type})"  # noqa: E501
         )
 
         # Get device data from coordinator
@@ -297,7 +297,7 @@ async def async_setup_entry(  # noqa: C901
                     )
                     entities.append(entity)
                     _LOGGER.debug(
-                        f"Created sensor: {entity.name} with value: {value.get('Value')}"
+                        f"Created sensor: {entity.name} with value: {value.get('Value')}"  # noqa: E501
                     )
                 else:
                     # For other device types, only include numeric values
@@ -320,7 +320,7 @@ async def async_setup_entry(  # noqa: C901
                         )
                         entities.append(entity)
                         _LOGGER.debug(
-                            f"Created sensor: {entity.name} with value: {value.get('Value')}"
+                            f"Created sensor: {entity.name} with value: {value.get('Value')}"  # noqa: E501
                         )
         else:
             _LOGGER.warning(f"No 'Values' data for device {device_name}")
@@ -408,7 +408,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
             # Try to convert to float for numeric values
             try:
-                # Convert to float, handling comma as decimal separator (European format)
+                # Convert to float, handling comma as decimal separator (European format)  # noqa: E501
                 value = value.replace(",", ".")
                 return float(value)
             except (ValueError, TypeError):
@@ -431,7 +431,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         return str(value)[:255]
 
     def _set_sensor_attributes(self):
-        """Set device class, state class, and unit of measurement based on sensor type."""
+        """Set device class, state class, and unit of measurement based on sensor type."""  # noqa: E501
         # Set icon for boolean alarm sensors
         if self._is_boolean and self.sensor_name == "alarmActive":
             if self.value_data.get("Value", "").lower() == "true":

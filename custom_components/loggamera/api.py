@@ -249,7 +249,7 @@ class LoggameraAPI:
 
                     # Create synthetic PowerMeter values if none were found
                     if not power_meter_used:
-                        # Find energy and power values in RawData to create equivalent PowerMeter values
+                        # Find energy and power values in RawData to create equivalent PowerMeter values  # noqa: E501
                         for value in raw_data["Data"]["Values"]:
                             if value.get("Name") == "544352":  # Energy imported
                                 # Create ConsumedTotalInkWh equivalent
@@ -464,7 +464,7 @@ class LoggameraAPI:
             # Don't raise error if endpoint is not available
             if "invalid endpoint" in str(e):
                 _LOGGER.warning(
-                    f"Scenarios endpoint not available for organization {self.organization_id}"
+                    f"Scenarios endpoint not available for organization {self.organization_id}"  # noqa: E501
                 )
                 return {"Data": {"Scenarios": []}, "Error": None}
             else:
