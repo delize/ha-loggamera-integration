@@ -1,0 +1,187 @@
+name: Smart Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - 'release'
+          - 'prerelease'
+          - 'draft'
+        default: 'release'
+      custom_notes:
+        description: 'Custom release notes (optional)'
+        required: false
+        type: string
+
+jobs:
+  smart-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for changelog generation
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Get version from manifest
+        id: get_version
+        run: |
+          VERSION=$(python -c "import json; print(json.load(open('custom_components/loggamera/manifest.json'))['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Current manifest version: $VERSION"
+
+      - name: Get previous release info
+        id: prev_release
+        run: |
+          # Get the latest release (not pre-release)
+          PREV_TAG=$(gh release list --limit 1 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == false) | .tagName' || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+            echo "📋 Previous release: $PREV_TAG"
+          else
+            echo "previous_tag=" >> $GITHUB_OUTPUT
+            echo "📋 No previous release found"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          PREV_TAG="${{ steps.prev_release.outputs.previous_tag }}"
+          
+          echo "## 📝 Changelog" > changelog.md
+          echo "" >> changelog.md
+          
+          if [ -n "$PREV_TAG" ]; then
+            echo "**Changes since $PREV_TAG:**" >> changelog.md
+            echo "" >> changelog.md
+            
+            # Get commits since last release
+            git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges >> changelog.md || echo "- Initial release" >> changelog.md
+          else
+            echo "- Initial release" >> changelog.md
+          fi
+          
+          echo "" >> changelog.md
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          CUSTOM_NOTES="${{ github.event.inputs.custom_notes }}"
+          
+          # Start release notes based on type
+          case $RELEASE_TYPE in
+            "prerelease")
+              echo "## 🚧 Pre-release v$VERSION" > release_notes.md
+              echo "" >> release_notes.md
+              echo "⚠️ **This is a pre-release version.** It may contain bugs or incomplete features." >> release_notes.md
+              ;;
+            "draft")
+              echo "## 📝 Draft Release v$VERSION" > release_notes.md
+              echo "" >> release_notes.md
+              echo "🔍 **This is a draft release.** Review and edit before publishing." >> release_notes.md
+              ;;
+            *)
+              echo "## 🎉 Release v$VERSION" > release_notes.md
+              ;;
+          esac
+          
+          echo "" >> release_notes.md
+          
+          # Add custom notes if provided
+          if [ -n "$CUSTOM_NOTES" ]; then
+            echo "$CUSTOM_NOTES" >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          # Add changelog
+          cat changelog.md >> release_notes.md
+          echo "" >> release_notes.md
+          
+          # Add installation instructions
+          cat >> release_notes.md << 'EOF'
+          ## 🚀 Installation
+          
+          ### HACS (Recommended)
+          1. Go to HACS → Integrations
+          2. Search for "Loggamera"
+          3. Click Install
+          4. Restart Home Assistant
+          
+          ### Manual Installation
+          1. Download the `loggamera.zip` from assets below
+          2. Extract to `config/custom_components/loggamera`
+          3. Restart Home Assistant
+          
+          ## 📱 Supported Devices
+          - **PowerMeter** - Electricity meters and energy monitoring
+          - **RoomSensor** - Temperature and humidity sensors
+          - **WaterMeter** - Water consumption monitoring
+          - **CoolingUnit** - Cooling system monitoring
+          - **HeatPump** - Heat pump monitoring
+          
+          ## 🔗 Links
+          - 📖 [Documentation](https://github.com/delize/home-assistant-loggamera-integration)
+          - 🐛 [Report Issues](https://github.com/delize/home-assistant-loggamera-integration/issues)
+          - 🛠️ [Diagnostic Tools](https://github.com/delize/home-assistant-loggamera-integration/tree/main/tools)
+          - ⚡ [Home Assistant Energy Dashboard Integration](https://www.home-assistant.io/docs/energy/)
+          EOF
+
+      - name: Create release asset
+        run: |
+          # Create a clean zip of just the integration
+          mkdir -p release_assets
+          cd custom_components
+          zip -r ../release_assets/loggamera.zip loggamera/
+          cd ..
+          echo "📦 Created loggamera.zip asset"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.get_version.outputs.version }}"
+          name: "Release v${{ steps.get_version.outputs.version }}"
+          body_path: release_notes.md
+          files: release_assets/loggamera.zip
+          draft: ${{ github.event.inputs.release_type == 'draft' }}
+          prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
+          make_latest: ${{ github.event.inputs.release_type == 'release' }}
+          generate_release_notes: false  # We're providing our own
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Success notification
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          
+          case $RELEASE_TYPE in
+            "prerelease")
+              echo "🚧 Pre-release v$VERSION created successfully!"
+              ;;
+            "draft")
+              echo "📝 Draft release v$VERSION created successfully!"
+              echo "🔍 Review and publish when ready."
+              ;;
+            *)
+              echo "🎉 Release v$VERSION created successfully!"
+              echo "🚀 Now available in HACS!"
+              ;;
+          esac
+          
+          echo "🔗 Release URL: https://github.com/delize/home-assistant-loggamera-integration/releases/tag/v$VERSION"

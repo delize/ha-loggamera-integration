@@ -15,22 +15,18 @@ When this PR is merged, the version will be automatically bumped based on the ty
 How It Works:
 
   For Automatic Releases (Most Common):
-  1. Create PR with appropriate title:
-    - [BUG] Fix sensor reading → PATCH bump (0.1.23 → 0.1.24)
-    - [FEATURE] Add water meter support → MINOR bump (0.1.23 → 0.2.0)
-    - [BREAKING] Change API structure → MAJOR bump (0.1.23 → 1.0.0)
+  
+  1. Label PR with appropriate title:
+    - `patch` - Force patch version bump
+    - `minor` - Force minor version bump  
+    - `major` - Force major version bump
+    - `breaking` - Force major version bump
   2. Merge PR → Automatically:
     - Detects version bump type
     - Updates manifest.json
     - Creates git tag
     - Generates release with notes
     - Comments on PR with release URL
-
-To override the automatic detection, add one of these labels to the PR:
-- `patch` - Force patch version bump
-- `minor` - Force minor version bump  
-- `major` - Force major version bump
-- `breaking` - Force major version bump
 
 ## Testing
 - [ ] Local testing performed
