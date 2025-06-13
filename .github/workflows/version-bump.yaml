@@ -38,14 +38,21 @@ jobs:
           
           if [[ "$PR_TITLE" =~ \[BREAKING\]|\[MAJOR\] ]] || [[ "$PR_LABELS" =~ breaking|major ]]; then
             echo "type=major" >> $GITHUB_OUTPUT
+            echo "should_bump=true" >> $GITHUB_OUTPUT
           elif [[ "$PR_TITLE" =~ \[FEATURE\]|\[MINOR\] ]] || [[ "$PR_LABELS" =~ feature|enhancement|minor ]]; then
             echo "type=minor" >> $GITHUB_OUTPUT
-          else
+            echo "should_bump=true" >> $GITHUB_OUTPUT
+          elif [[ "$PR_TITLE" =~ \[PATCH\] ]] || [[ "$PR_LABELS" =~ patch|bug|documentation|dependencies ]]; then
             echo "type=patch" >> $GITHUB_OUTPUT
+            echo "should_bump=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_bump=false" >> $GITHUB_OUTPUT
+            echo "No version bump indicators found (no labels or title keywords)" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Calculate new version
         id: new_version
+        if: steps.bump_type.outputs.should_bump == 'true'
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
@@ -74,6 +81,7 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
+        if: steps.bump_type.outputs.should_bump == 'true'
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
           python -c "
@@ -86,6 +94,7 @@ jobs:
           "
 
       - name: Commit version bump
+        if: steps.bump_type.outputs.should_bump == 'true'
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
           git config --local user.email "action@github.com"
@@ -95,6 +104,7 @@ jobs:
           git push
 
       - name: Comment on PR
+        if: steps.bump_type.outputs.should_bump == 'true'
         uses: actions/github-script@v7
         with:
           script: |
