@@ -240,32 +240,35 @@ jobs:
               execSync(`git checkout -b ${branchName}`);
               execSync(`git push origin ${branchName}`);
 
-              // Create PR
+              // Create PR body
+              const prBody = [
+                '## 🔖 Automatic Version Bump',
+                '',
+                `**New Version**: \`${newVersion}\` (${bumpType} release)`,
+                `**Triggered by**: ${prTitle} (#${prNumber})`,
+                '',
+                '### 📝 Changes Made:',
+                `- ✅ Updated \`manifest.json\` version to \`${newVersion}\``,
+                '- ✅ Updated \`CHANGELOG.md\` with release notes',
+                '',
+                '### 🚀 Next Steps:',
+                '1. Review and merge this PR',
+                `2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)`,
+                '',
+                '---',
+                '',
+                '🤖 This PR was created automatically by the version bump workflow.',
+                '',
+                '⚡ **Auto-merge ready** - This PR can be safely merged without additional review.'
+              ].join('\\n');
+
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: `🔖 Bump version to ${newVersion}`,
                 head: branchName,
                 base: 'main',
-                body: |
-                  ## 🔖 Automatic Version Bump
-
-                  **New Version**: \`${newVersion}\` (${bumpType} release)
-                  **Triggered by**: ${prTitle} (#${prNumber})
-
-                  ### 📝 Changes Made:
-                  - ✅ Updated \`manifest.json\` version to \`${newVersion}\`
-                  - ✅ Updated \`CHANGELOG.md\` with release notes
-
-                  ### 🚀 Next Steps:
-                  1. Review and merge this PR
-                  2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
-
-                  ---
-
-                  🤖 This PR was created automatically by the version bump workflow.
-
-                  ⚡ **Auto-merge ready** - This PR can be safely merged without additional review.
+                body: prBody
               });
 
               console.log(`✅ Created version bump PR: #${pr.number}`);
