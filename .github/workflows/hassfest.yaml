@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
+  hassfest:
+    name: Validate with hassfest
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
