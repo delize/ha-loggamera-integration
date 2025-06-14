@@ -223,6 +223,7 @@ jobs:
               }
               
               // Direct push failed, create a branch and PR
+
               // Delete existing branch if it exists
               try {
                 execSync(`git push origin --delete ${branchName}`, { stdio: 'ignore' });
@@ -230,7 +231,6 @@ jobs:
               } catch (deleteError) {
                 console.log(`ℹ️ Branch ${branchName} doesn't exist remotely (expected for new versions)`);
               }
-              
               execSync(`git checkout -b ${branchName}`);
               execSync(`git push origin ${branchName}`);
               
