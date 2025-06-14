@@ -261,6 +261,7 @@ jobs:
           echo "📦 Created loggamera.zip asset"
 
       - name: Create Release
+        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "v${{ steps.get_version.outputs.version }}"
@@ -270,6 +271,48 @@ jobs:
           draft: ${{ github.event.inputs.release_type == 'draft' }}
           prerelease: ${{ github.event.inputs.release_type == 'prerelease' }}
           generate_release_notes: false  # We're providing our own
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Release Status
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          
+          echo "🔍 Checking release status for v$VERSION"
+          
+          # Get the release info
+          RELEASE_INFO=$(gh release view "v$VERSION" --json isLatest,isDraft,isPrerelease,tagName)
+          echo "📋 Release info: $RELEASE_INFO"
+          
+          IS_LATEST=$(echo "$RELEASE_INFO" | jq -r '.isLatest')
+          IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
+          IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
+          
+          echo "📊 Release Status:"
+          echo "   - Latest: $IS_LATEST"
+          echo "   - Draft: $IS_DRAFT" 
+          echo "   - Pre-release: $IS_PRERELEASE"
+          
+          # For full releases, ensure it's marked as latest
+          if [ "$RELEASE_TYPE" = "release" ] && [ "$IS_LATEST" != "true" ]; then
+            echo "⚠️ Full release is not marked as latest! Attempting to fix..."
+            
+            # Try to update the release to be latest using GitHub CLI
+            gh release edit "v$VERSION" --latest
+            
+            # Verify the fix
+            UPDATED_INFO=$(gh release view "v$VERSION" --json isLatest)
+            UPDATED_LATEST=$(echo "$UPDATED_INFO" | jq -r '.isLatest')
+            
+            if [ "$UPDATED_LATEST" = "true" ]; then
+              echo "✅ Successfully marked release as latest"
+            else
+              echo "❌ Failed to mark release as latest"
+            fi
+          elif [ "$RELEASE_TYPE" = "release" ] && [ "$IS_LATEST" = "true" ]; then
+            echo "✅ Full release correctly marked as latest"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
