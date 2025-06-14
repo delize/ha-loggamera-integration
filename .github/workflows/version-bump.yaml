@@ -15,10 +15,16 @@ jobs:
       issues: write
     
     steps:
+      - name: Security Check - Mask Sensitive Values
+        run: |
+          # Ensure any token values are masked in logs
+          echo "::add-mask::${{ secrets.PAT_TOKEN }}"
+          echo "🔒 Security: Token values are masked in all logs"
+          
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -187,7 +193,7 @@ jobs:
         if: steps.bump_type.outputs.should_bump == 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const newVersion = '${{ steps.new_version.outputs.version }}';
             const bumpType = '${{ steps.bump_type.outputs.type }}';
@@ -243,26 +249,60 @@ jobs:
                 base: 'main',
                 body: `## 🔖 Automatic Version Bump
 
-                **New Version**: \`${newVersion}\` (${bumpType} release)
-                **Triggered by**: ${prTitle} (#${prNumber})
+**New Version**: \`${newVersion}\` (${bumpType} release)
+**Triggered by**: ${prTitle} (#${prNumber})
 
-                ### 📝 Changes Made:
-                - ✅ Updated \`manifest.json\` version to \`${newVersion}\`
-                - ✅ Updated \`CHANGELOG.md\` with release notes
+### 📝 Changes Made:
+- ✅ Updated \`manifest.json\` version to \`${newVersion}\`
+- ✅ Updated \`CHANGELOG.md\` with release notes
 
-                ### 🚀 Next Steps:
-                1. Review and merge this PR
-                2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
+### 🚀 Next Steps:
+1. Review and merge this PR
+2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
 
-                ---
+---
 
-                🤖 This PR was created automatically by the version bump workflow.
-                
-                ⚡ **Auto-merge ready** - This PR can be safely merged without additional review.`
+🤖 This PR was created automatically by the version bump workflow.
+
+⚡ **Auto-merge ready** - This PR can be safely merged without additional review.`
               });
 
               console.log(`✅ Created version bump PR: #${pr.number}`);
               console.log(`🔗 PR URL: ${pr.html_url}`);
+              
+              // Trigger required status checks manually
+              try {
+                console.log('🔄 Triggering required status checks...');
+                
+                // Trigger lint workflow
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'lint.yaml',
+                  ref: branchName
+                });
+                
+                // Trigger hassfest workflow  
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'hassfest.yaml',
+                  ref: branchName
+                });
+                
+                // Trigger validate workflow
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'validate.yaml',
+                  ref: branchName
+                });
+                
+                console.log('✅ Status checks triggered');
+              } catch (triggerError) {
+                console.log('⚠️ Could not trigger status checks manually:', triggerError.message);
+                console.log('🔄 Checks should trigger automatically on PR creation');
+              }
               
               // Add auto-merge label if it exists
               try {

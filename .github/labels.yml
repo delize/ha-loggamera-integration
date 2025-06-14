@@ -40,3 +40,11 @@
 - name: "no-version-bump"
   color: "E4E669"
   description: "Changes that don't require a version bump (CI, tests, workflows)"
+
+- name: "auto-merge"
+  color: "0E8A16"
+  description: "Enable automatic merging for this PR (bot PRs only)"
+
+- name: "version-bump"
+  color: "0052CC"
+  description: "Automatic version bump PR created by GitHub Actions"
