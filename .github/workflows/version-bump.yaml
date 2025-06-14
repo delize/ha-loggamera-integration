@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     
     steps:
       - name: Checkout
@@ -186,6 +187,7 @@ jobs:
         if: steps.bump_type.outputs.should_bump == 'true'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const newVersion = '${{ steps.new_version.outputs.version }}';
             const bumpType = '${{ steps.bump_type.outputs.type }}';
@@ -221,6 +223,14 @@ jobs:
               }
               
               // Direct push failed, create a branch and PR
+              // Delete existing branch if it exists
+              try {
+                execSync(`git push origin --delete ${branchName}`, { stdio: 'ignore' });
+                console.log(`🗑️ Deleted existing branch ${branchName}`);
+              } catch (deleteError) {
+                console.log(`ℹ️ Branch ${branchName} doesn't exist remotely (expected for new versions)`);
+              }
+              
               execSync(`git checkout -b ${branchName}`);
               execSync(`git push origin ${branchName}`);
               
