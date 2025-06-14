@@ -1,0 +1,57 @@
+# Code Owners for Home Assistant Loggamera Integration
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global ownership - all files require review from repository owner
+* @delize
+
+# # Integration core files - require extra scrutiny
+# /custom_components/loggamera/ @delize
+# /custom_components/loggamera/manifest.json @delize
+# /custom_components/loggamera/__init__.py @delize
+# /custom_components/loggamera/config_flow.py @delize
+
+# # API and sensor logic - critical functionality
+# /custom_components/loggamera/api.py @delize
+# /custom_components/loggamera/sensor.py @delize
+# /custom_components/loggamera/const.py @delize
+
+# # Configuration and translations
+# /custom_components/loggamera/translations/ @delize
+# /custom_components/loggamera/services.yaml @delize
+# /hacs.json @delize
+
+# # GitHub Actions and CI/CD - requires admin approval
+# /.github/workflows/ @delize
+# /.github/SECURITY.md @delize
+
+# # Release and version management workflows
+# /.github/workflows/smart-release.yaml @delize
+# /.github/workflows/version-bump.yaml @delize
+# /.github/workflows/enhance-native-release.yaml @delize
+
+# # Code quality and validation workflows
+# /.github/workflows/lint.yaml @delize
+# /.github/workflows/hacs.yaml @delize
+# /.github/workflows/hassfest.yaml @delize
+
+# # Project configuration files
+# /pyproject.toml @delize
+# /requirements-dev.txt @delize
+# /.pre-commit-config.yaml @delize
+
+# # Documentation - can be more flexible for contributors
+# /README.md @delize
+# /docs/ @delize
+# /CHANGELOG.md @delize
+# /CONTRIBUTING.md @delize
+
+# # Tests - should be reviewed but can accept community contributions
+# /tests/ @delize
+
+# # Tools and utilities - diagnostic and helper scripts
+# /tools/ @delize
+
+# # Issue and PR templates
+# /.github/ISSUE_TEMPLATE/ @delize
+# /.github/PULL_REQUEST_TEMPLATE.md @delize
+# /.github/labels.yml @delize
