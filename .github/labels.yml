@@ -35,3 +35,8 @@
 - name: "dependencies"
   color: "0366D6"
   description: "Dependency updates (patch version bump)"
+
+# Special labels
+- name: "no-version-bump"
+  color: "E4E669"
+  description: "Changes that don't require a version bump (CI, tests, workflows)"
