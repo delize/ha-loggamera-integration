@@ -20,19 +20,19 @@
 # /custom_components/loggamera/services.yaml @delize
 # /hacs.json @delize
 
-# # GitHub Actions and CI/CD - requires admin approval
-# /.github/workflows/ @delize
-# /.github/SECURITY.md @delize
+# GitHub Actions and CI/CD - requires admin approval
+/.github/workflows/ @delize
+/.github/SECURITY.md @delize
 
-# # Release and version management workflows
-# /.github/workflows/smart-release.yaml @delize
-# /.github/workflows/version-bump.yaml @delize
-# /.github/workflows/enhance-native-release.yaml @delize
+# Release and version management workflows
+/.github/workflows/smart-release.yaml @delize
+/.github/workflows/version-bump.yaml @delize
+/.github/workflows/enhance-native-release.yaml @delize
 
-# # Code quality and validation workflows
-# /.github/workflows/lint.yaml @delize
-# /.github/workflows/hacs.yaml @delize
-# /.github/workflows/hassfest.yaml @delize
+# Code quality and validation workflows
+/.github/workflows/lint.yaml @delize
+/.github/workflows/hacs.yaml @delize
+/.github/workflows/hassfest.yaml @delize
 
 # # Project configuration files
 # /pyproject.toml @delize
