@@ -182,48 +182,130 @@ jobs:
             fs.writeFileSync('CHANGELOG.md', changelog);
             console.log('✅ CHANGELOG.md updated successfully');
 
-      - name: Commit version bump
-        if: steps.bump_type.outputs.should_bump == 'true'
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add custom_components/loggamera/manifest.json CHANGELOG.md
-          git commit -m "🔖 Bump version to $NEW_VERSION
-
-          - Updated manifest.json
-          - Updated CHANGELOG.md with release notes
-          
-          🤖 Generated with [Claude Code](https://claude.ai/code)
-          
-          Co-Authored-By: Claude <noreply@anthropic.com>"
-          
-          # Try to push directly (requires admin token or bypass protection)
-          # If this fails due to branch protection, the files are still staged for manual intervention
-          if ! git push origin main; then
-            echo "⚠️ Direct push failed (likely due to branch protection)"
-            echo "📝 Files have been updated and committed locally"
-            echo "🔧 Consider using an admin token or creating a separate release branch"
-            
-            # Create a patch file as backup
-            git format-patch -1 HEAD --stdout > version-bump-${NEW_VERSION}.patch
-            echo "💾 Created patch file: version-bump-${NEW_VERSION}.patch"
-          else
-            echo "✅ Version bump pushed successfully"
-          fi
-
-      - name: Comment on PR
+      - name: Create version bump branch and PR
         if: steps.bump_type.outputs.should_bump == 'true'
         uses: actions/github-script@v7
         with:
           script: |
+            const newVersion = '${{ steps.new_version.outputs.version }}';
+            const bumpType = '${{ steps.bump_type.outputs.type }}';
+            const prTitle = context.payload.pull_request.title;
+            const prNumber = context.payload.pull_request.number;
+            
+            // Create a new branch for the version bump
+            const branchName = `version-bump/v${newVersion}`;
+            
+            try {
+              // Try to push directly to main first (in case branch protection allows it)
+              const { execSync } = require('child_process');
+              
+              execSync(`git config --local user.email "action@github.com"`);
+              execSync(`git config --local user.name "GitHub Action"`);
+              execSync(`git add custom_components/loggamera/manifest.json CHANGELOG.md`);
+              execSync(`git commit -m "🔖 Bump version to ${newVersion}
+
+              - Updated manifest.json from ${bumpType} release  
+              - Updated CHANGELOG.md with release notes
+              - Triggered by: ${prTitle} (#${prNumber})
+              
+              🤖 Generated with [Claude Code](https://claude.ai/code)
+              
+              Co-Authored-By: Claude <noreply@anthropic.com>"`);
+              
+              try {
+                execSync(`git push origin main`);
+                console.log('✅ Version bump pushed directly to main');
+                return;
+              } catch (pushError) {
+                console.log('⚠️ Direct push failed - creating PR instead');
+              }
+              
+              // Direct push failed, create a branch and PR
+              execSync(`git checkout -b ${branchName}`);
+              execSync(`git push origin ${branchName}`);
+              
+              // Create PR
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔖 Bump version to ${newVersion}`,
+                head: branchName,
+                base: 'main',
+                body: `## 🔖 Automatic Version Bump
+
+                **New Version**: \`${newVersion}\` (${bumpType} release)
+                **Triggered by**: ${prTitle} (#${prNumber})
+
+                ### 📝 Changes Made:
+                - ✅ Updated \`manifest.json\` version to \`${newVersion}\`
+                - ✅ Updated \`CHANGELOG.md\` with release notes
+
+                ### 🚀 Next Steps:
+                1. Review and merge this PR
+                2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
+
+                ---
+
+                🤖 This PR was created automatically by the version bump workflow.
+                
+                ⚡ **Auto-merge ready** - This PR can be safely merged without additional review.`
+              });
+
+              console.log(`✅ Created version bump PR: #${pr.number}`);
+              console.log(`🔗 PR URL: ${pr.html_url}`);
+              
+              // Add auto-merge label if it exists
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: ['auto-merge', 'version-bump']
+                });
+              } catch (labelError) {
+                console.log('ℹ️ Could not add labels (labels may not exist)');
+              }
+              
+              core.setOutput('pr_number', pr.number);
+              core.setOutput('pr_url', pr.html_url);
+              
+            } catch (error) {
+              console.error('❌ Failed to create version bump:', error.message);
+              core.setFailed(`Failed to create version bump: ${error.message}`);
+            }
+
+      - name: Comment on original PR
+        if: steps.bump_type.outputs.should_bump == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const newVersion = '${{ steps.new_version.outputs.version }}';
+            const bumpType = '${{ steps.bump_type.outputs.type }}';
+            const prNumber = '${{ steps.create-version-bump-branch-and-pr.outputs.pr_number }}';
+            const prUrl = '${{ steps.create-version-bump-branch-and-pr.outputs.pr_url }}';
+            
+            let commentBody = `🔖 **Version Bump Triggered!**
+            
+            This PR triggered a **${bumpType}** version bump to \`v${newVersion}\`.`;
+            
+            if (prNumber && prUrl) {
+              commentBody += `
+              
+              📋 **Version Bump PR Created**: #${prNumber}
+              🔗 **Review and merge**: ${prUrl}
+              
+              ✅ Once the version bump PR is merged, you can create a release using the [Smart Release workflow](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/smart-release.yaml)`;
+            } else {
+              commentBody += `
+              
+              ✅ **Version bump applied directly to main branch.**
+              
+              🚀 Ready to create a release? Run the [Smart Release workflow](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/smart-release.yaml) with version \`${newVersion}\``;
+            }
+            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔖 **Version Bumped!**
-              
-              Version updated to \`v${{ steps.new_version.outputs.version }}\` (${{ steps.bump_type.outputs.type }} bump)
-              
-              🚀 Ready to create a release? Run the [Manual Release workflow](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/manual-release.yaml) with version \`${{ steps.new_version.outputs.version }}\``
-            })
+              body: commentBody
+            });
