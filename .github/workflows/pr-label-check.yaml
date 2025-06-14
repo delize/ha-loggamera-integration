@@ -12,10 +12,59 @@ jobs:
       issues: write
     
     steps:
-      - name: Check for version labels
+      - name: Security Check - Fork and Permission Validation
         uses: actions/github-script@v7
         with:
           script: |
+            // Allow workflow to run for:
+            // 1. PRs from the main repository (not forks)
+            // 2. PRs from forks by users with write+ access
+            
+            const prAuthor = context.payload.pull_request.user.login;
+            const isFromFork = context.payload.pull_request.head.repo.full_name !== context.payload.pull_request.base.repo.full_name;
+            
+            console.log(`👤 PR Author: ${prAuthor}`);
+            console.log(`🔀 From Fork: ${isFromFork}`);
+            
+            if (isFromFork) {
+              try {
+                // Check if fork author has write access to main repo
+                const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  username: prAuthor
+                });
+                
+                console.log(`🔐 Fork author permission: ${permission.permission}`);
+                
+                if (!['write', 'admin', 'maintain'].includes(permission.permission)) {
+                  console.log('⚠️ Fork PR from user without write access - limiting functionality');
+                  // Set a flag for limited mode (no comments)
+                  core.setOutput('limited_mode', 'true');
+                } else {
+                  console.log('✅ Fork PR from collaborator - full functionality');
+                  core.setOutput('limited_mode', 'false');
+                }
+              } catch (error) {
+                console.log('⚠️ Could not check fork author permissions - limiting functionality');
+                core.setOutput('limited_mode', 'true');
+              }
+            } else {
+              console.log('✅ PR from main repository - full functionality');
+              core.setOutput('limited_mode', 'false');
+            }
+
+      - name: Check for version labels
+        id: label_check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the limited mode flag from previous step
+            const limitedMode = '${{ steps.security-check-fork-and-permission-validation.outputs.limited_mode }}' === 'true';
+            
+            if (limitedMode) {
+              console.log('🔒 Running in limited mode - validation only, no comments');
+            }
             
             // Define valid version labels
             const versionLabels = [
