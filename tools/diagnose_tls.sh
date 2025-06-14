@@ -129,11 +129,11 @@ if openssl s_client -connect platform.loggamera.se:443 -servername platform.logg
 else
     printf "${RED}✗ SSL/TLS connection verification failed\n${NC}"
     printf "  This might be a certificate issue.\n"
-    
+
     # Get more details
     printf "\n${BLUE}Certificate details:\n${NC}"
     openssl s_client -connect platform.loggamera.se:443 -servername platform.loggamera.se </dev/null 2>/dev/null | grep -E "subject=|issuer="
-    
+
     # Check if the CA certificates are installed
     printf "\n${BLUE}Checking CA certificates...\n${NC}"
     if [ -d /etc/ssl/certs ]; then
@@ -164,7 +164,7 @@ if [ -n "$certifi_path" ]; then
     else
         printf "${RED}✗ Connection using certifi failed\n${NC}"
         printf "  The certifi bundle may be missing the required CA certificate.\n"
-        
+
         # Copy system CA certificates to a custom location
         printf "\n${BLUE}Creating a custom CA bundle...\n${NC}"
         if [ -d /etc/ssl/certs ]; then
@@ -172,7 +172,7 @@ if [ -n "$certifi_path" ]; then
             if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
                 cp -f /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/custom/cacert.pem
                 printf "  Custom CA bundle created at /etc/ssl/certs/custom/cacert.pem\n"
-                
+
                 # Test with the custom bundle
                 if curl -s --cacert /etc/ssl/certs/custom/cacert.pem https://platform.loggamera.se > /dev/null 2>&1; then
                     printf "${GREEN}✓ Connection using custom CA bundle successful\n${NC}"

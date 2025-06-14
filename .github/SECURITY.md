@@ -16,7 +16,7 @@ This repository uses automated GitHub Actions workflows with built-in security c
 ### 🛡️ Security Controls
 
 1. **Permission Checks**: All manual workflows verify user permissions before running
-2. **Rate Limiting**: Auto-fix workflow limited to 5 runs per user per hour  
+2. **Rate Limiting**: Auto-fix workflow limited to 5 runs per user per hour
 3. **PR Validation**: Users can only auto-fix their own PRs or PRs from the main repo
 4. **Audit Logging**: All manual workflow runs are logged with user and timestamp
 5. **Fork Protection**: Special handling for PRs from forks

@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Security Check - Admin Only
         uses: actions/github-script@v7
@@ -33,14 +33,14 @@ jobs:
               repo: context.repo.repo,
               username: context.actor
             });
-            
+
             if (!['admin', 'maintain'].includes(permission.permission)) {
               core.setFailed(`❌ Access denied. Only repository admins can create releases. Your permission: ${permission.permission}`);
               return;
             }
-            
+
             console.log(`✅ Admin permission verified for ${context.actor}: ${permission.permission}`);
-      
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -62,12 +62,12 @@ jobs:
         id: prev_release
         run: |
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
-          
+
           if [ "$RELEASE_TYPE" = "release" ]; then
             # For full releases: get the last full release (n-1)
             echo "🔍 Looking for last full release (excluding pre-releases)"
             PREV_TAG=$(gh release list --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == false) | .tagName' | head -1 2>/dev/null || echo "")
-            
+
             if [ -n "$PREV_TAG" ]; then
               echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
               echo "📋 Last full release found: $PREV_TAG"
@@ -80,7 +80,7 @@ jobs:
             # For pre-releases: get the last full release (not the last pre-release)
             echo "🔍 Looking for last full release (base for cumulative pre-release changelog)"
             PREV_TAG=$(gh release list --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == false) | .tagName' | head -1 2>/dev/null || echo "")
-            
+
             if [ -n "$PREV_TAG" ]; then
               echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
               echo "📋 Base full release found: $PREV_TAG"
@@ -91,7 +91,7 @@ jobs:
               if [ -z "$PREV_TAG" ]; then
                 PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
               fi
-              
+
               if [ -n "$PREV_TAG" ]; then
                 echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
                 echo "📋 Previous release/tag found: $PREV_TAG"
@@ -102,7 +102,7 @@ jobs:
               fi
             fi
           fi
-          
+
           # Also get total commit count for debugging
           COMMIT_COUNT=$(git rev-list --count HEAD)
           echo "📊 Total commits in repository: $COMMIT_COUNT"
@@ -115,10 +115,10 @@ jobs:
           VERSION="${{ steps.get_version.outputs.version }}"
           PREV_TAG="${{ steps.prev_release.outputs.previous_tag }}"
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
-          
+
           echo "## 📝 Changelog" > changelog.md
           echo "" >> changelog.md
-          
+
           if [ -n "$PREV_TAG" ]; then
             # Customize the changelog header based on release type
             if [ "$RELEASE_TYPE" = "release" ]; then
@@ -129,18 +129,18 @@ jobs:
               echo "**Changes since $PREV_TAG:**" >> changelog.md
             fi
             echo "" >> changelog.md
-            
+
             # Debug: Show what we're comparing
             echo "🔍 Generating changelog from $PREV_TAG to HEAD"
-            
+
             # Get commits since last release with better error handling
             COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges 2>/dev/null)
-            
+
             if [ -n "$COMMITS" ]; then
               echo "$COMMITS" >> changelog.md
               COMMIT_COUNT=$(echo "$COMMITS" | wc -l)
               echo "📝 Added $COMMIT_COUNT commits to changelog"
-              
+
               # Add context for pre-releases
               if [ "$RELEASE_TYPE" = "prerelease" ]; then
                 echo "📋 Pre-release changelog includes all changes since last stable release"
@@ -163,10 +163,10 @@ jobs:
               echo "**Initial Release - Recent Changes:**" >> changelog.md
             fi
             echo "" >> changelog.md
-            
+
             # Get last 10 commits for initial release
             RECENT_COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -10 2>/dev/null)
-            
+
             if [ -n "$RECENT_COMMITS" ]; then
               echo "$RECENT_COMMITS" >> changelog.md
               echo "📝 Added recent commits for initial release"
@@ -179,9 +179,9 @@ jobs:
               echo "📝 Using fallback initial release message"
             fi
           fi
-          
+
           echo "" >> changelog.md
-          
+
           # Debug: Show what was generated
           echo "📄 Generated changelog:"
           cat changelog.md
@@ -192,7 +192,7 @@ jobs:
           VERSION="${{ steps.get_version.outputs.version }}"
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
           CUSTOM_NOTES="${{ github.event.inputs.custom_notes }}"
-          
+
           # Start release notes based on type
           case $RELEASE_TYPE in
             "prerelease")
@@ -209,28 +209,28 @@ jobs:
               echo "## 🎉 Release v$VERSION" > release_notes.md
               ;;
           esac
-          
+
           echo "" >> release_notes.md
-          
+
           # Add custom notes if provided
           if [ -n "$CUSTOM_NOTES" ]; then
             echo "$CUSTOM_NOTES" >> release_notes.md
             echo "" >> release_notes.md
           fi
-          
+
           # Add changelog from the maintained CHANGELOG.md file
           if [ -f CHANGELOG.md ]; then
             echo "## 📝 Recent Changes" >> release_notes.md
             echo "" >> release_notes.md
-            
+
             # Extract the latest version section from CHANGELOG.md
             VERSION="${{ steps.get_version.outputs.version }}"
-            
+
             # Try to find this version in CHANGELOG.md
             if grep -q "## \[$VERSION\]" CHANGELOG.md; then
               echo "**From CHANGELOG.md:**" >> release_notes.md
               echo "" >> release_notes.md
-              
+
               # Extract the section for this version
               sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2 >> release_notes.md
             else
@@ -242,29 +242,29 @@ jobs:
             cat changelog.md >> release_notes.md
           fi
           echo "" >> release_notes.md
-          
+
           # Add installation instructions
           cat >> release_notes.md << 'EOF'
           ## 🚀 Installation
-          
+
           ### HACS (Recommended)
           1. Go to HACS → Integrations
           2. Search for "Loggamera"
           3. Click Install
           4. Restart Home Assistant
-          
+
           ### Manual Installation
           1. Download the `loggamera.zip` from assets below
           2. Extract to `config/custom_components/loggamera`
           3. Restart Home Assistant
-          
+
           ## 📱 Supported Devices
           - **PowerMeter** - Electricity meters and energy monitoring
           - **RoomSensor** - Temperature and humidity sensors
           - **WaterMeter** - Water consumption monitoring
           - **CoolingUnit** - Cooling system monitoring
           - **HeatPump** - Heat pump monitoring
-          
+
           ## 🔗 Links
           - 📖 [Documentation](https://github.com/delize/home-assistant-loggamera-integration)
           - 🐛 [Report Issues](https://github.com/delize/home-assistant-loggamera-integration/issues)
@@ -295,43 +295,43 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify and Fix Release Status  
+      - name: Verify and Fix Release Status
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
-          
+
           echo "🔍 Checking release status for v$VERSION"
-          
+
           # Wait a moment for GitHub API to be consistent
           sleep 2
-          
+
           # Get the release info
           RELEASE_INFO=$(gh release view "v$VERSION" --json isLatest,isDraft,isPrerelease,tagName)
           echo "📋 Release info: $RELEASE_INFO"
-          
+
           IS_LATEST=$(echo "$RELEASE_INFO" | jq -r '.isLatest')
           IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
           IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
-          
+
           echo "📊 Release Status:"
           echo "   - Latest: $IS_LATEST"
-          echo "   - Draft: $IS_DRAFT" 
+          echo "   - Draft: $IS_DRAFT"
           echo "   - Pre-release: $IS_PRERELEASE"
           echo "   - Release Type: $RELEASE_TYPE"
-          
+
           # For full releases, ALWAYS ensure it's marked as latest (even for existing releases)
           if [ "$RELEASE_TYPE" = "release" ]; then
             if [ "$IS_LATEST" != "true" ]; then
               echo "⚠️ Full release is not marked as latest! Fixing now..."
-              
+
               # Mark this release as latest using GitHub CLI
               gh release edit "v$VERSION" --latest
-              
+
               # Wait and verify the fix
               sleep 2
               UPDATED_INFO=$(gh release view "v$VERSION" --json isLatest)
               UPDATED_LATEST=$(echo "$UPDATED_INFO" | jq -r '.isLatest')
-              
+
               if [ "$UPDATED_LATEST" = "true" ]; then
                 echo "✅ Successfully marked release v$VERSION as latest"
               else
@@ -357,7 +357,7 @@ jobs:
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           RELEASE_TYPE="${{ github.event.inputs.release_type }}"
-          
+
           case $RELEASE_TYPE in
             "prerelease")
               echo "🚧 Pre-release v$VERSION created successfully!"
@@ -371,5 +371,5 @@ jobs:
               echo "🚀 Now available in HACS!"
               ;;
           esac
-          
+
           echo "🔗 Release URL: https://github.com/delize/home-assistant-loggamera-integration/releases/tag/v$VERSION"

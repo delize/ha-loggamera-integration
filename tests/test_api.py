@@ -1,6 +1,6 @@
 """Tests for the Loggamera API client."""
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from custom_components.loggamera.api import LoggameraAPI, LoggameraAPIError
 
@@ -25,12 +25,8 @@ class TestLoggameraAPI(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "Data": {
-                "Organizations": [
-                    {"Id": 1, "Name": "Test Org", "ParentId": 0}
-                ]
-            },
-            "Error": None
+            "Data": {"Organizations": [{"Id": 1, "Name": "Test Org", "ParentId": 0}]},
+            "Error": None,
         }
         mock_post.return_value = mock_response
 

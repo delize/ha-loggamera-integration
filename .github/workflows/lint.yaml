@@ -17,17 +17,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install black flake8 isort
-      
+
       - name: Check code formatting with Black
         id: black-check
         run: |
@@ -38,7 +38,7 @@ jobs:
           else
             echo "✅ Black formatting passed" >> $GITHUB_STEP_SUMMARY
           fi
-      
+
       - name: Check import sorting with isort
         id: isort-check
         run: |
@@ -49,7 +49,7 @@ jobs:
           else
             echo "✅ Import sorting passed" >> $GITHUB_STEP_SUMMARY
           fi
-      
+
       - name: Lint with flake8
         id: flake8-check
         run: |
@@ -60,7 +60,7 @@ jobs:
           else
             echo "✅ Flake8 linting passed" >> $GITHUB_STEP_SUMMARY
           fi
-      
+
       - name: Comment with auto-fix option
         if: failure()
         uses: actions/github-script@v7
@@ -68,35 +68,35 @@ jobs:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const fixUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/workflows/auto-fix-code.yaml`;
-            
+
             try {
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: `## 🚨 Code Quality Check Failed
-                
+
                 Your PR has code formatting or linting issues that need to be addressed.
-                
+
                 **View the detailed report:** [Check Run Details](${runUrl})
-                
+
                 ### 🔧 Auto-Fix Available
-                
+
                 Would you like to automatically fix these issues? Simply comment on this PR:
-                
+
                 \`/fix-formatting\`
-                
+
                 This will:
                 - Format code with Black
-                - Sort imports with isort  
+                - Sort imports with isort
                 - Fix auto-fixable flake8 issues
                 - Commit the changes to your PR branch
-                
+
                 **Who can use auto-fix:**
                 - 👤 PR author
-                - 👑 Repository owner  
+                - 👑 Repository owner
                 - 🤝 Repository collaborators with write access
-                
+
                 Or you can fix these issues manually and push the changes.`
               });
               console.log('✅ Successfully posted auto-fix comment');
