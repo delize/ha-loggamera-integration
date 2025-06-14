@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,13 +26,13 @@ jobs:
           # Get version from release tag
           RELEASE_VERSION="${{ github.event.release.tag_name }}"
           RELEASE_VERSION=${RELEASE_VERSION#v}  # Remove 'v' prefix if present
-          
+
           # Get version from manifest
           MANIFEST_VERSION=$(python -c "import json; print(json.load(open('custom_components/loggamera/manifest.json'))['version'])")
-          
+
           echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
           echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
-          
+
           echo "🏷️ Release version: $RELEASE_VERSION"
           echo "📦 Manifest version: $MANIFEST_VERSION"
 
@@ -41,10 +41,10 @@ jobs:
         run: |
           RELEASE_VERSION="${{ steps.versions.outputs.release_version }}"
           MANIFEST_VERSION="${{ steps.versions.outputs.manifest_version }}"
-          
+
           if [ "$RELEASE_VERSION" != "$MANIFEST_VERSION" ]; then
             echo "🔄 Updating manifest.json from $MANIFEST_VERSION to $RELEASE_VERSION"
-            
+
             python -c "
             import json
             with open('custom_components/loggamera/manifest.json', 'r') as f:
@@ -53,14 +53,14 @@ jobs:
             with open('custom_components/loggamera/manifest.json', 'w') as f:
                 json.dump(manifest, f, indent=2)
             "
-            
+
             # Commit the change
             git config --local user.email "action@github.com"
             git config --local user.name "GitHub Action"
             git add custom_components/loggamera/manifest.json
             git commit -m "🔖 Update manifest.json to $RELEASE_VERSION"
             git push
-            
+
             echo "updated=true" >> $GITHUB_OUTPUT
           else
             echo "✅ Manifest version already matches release version"
@@ -81,45 +81,45 @@ jobs:
         run: |
           CURRENT_BODY="${{ github.event.release.body }}"
           VERSION="${{ steps.versions.outputs.release_version }}"
-          
+
           # Check if body already has our enhancements
           if [[ "$CURRENT_BODY" =~ "HACS (Recommended)" ]]; then
             echo "✅ Release body already enhanced"
             echo "enhanced=false" >> $GITHUB_OUTPUT
           else
             echo "🔧 Enhancing release body"
-            
+
             # Create enhanced body
             cat > enhanced_body.md << EOF
           $CURRENT_BODY
-          
+
           ## 🚀 Installation
-          
+
           ### HACS (Recommended)
           1. Go to HACS → Integrations
           2. Search for "Loggamera"
           3. Click Install
           4. Restart Home Assistant
-          
+
           ### Manual Installation
           1. Download \`loggamera.zip\` from the assets below
           2. Extract to \`config/custom_components/loggamera\`
           3. Restart Home Assistant
-          
+
           ## 📱 Supported Devices
           - **PowerMeter** - Electricity meters and energy monitoring
           - **RoomSensor** - Temperature and humidity sensors
           - **WaterMeter** - Water consumption monitoring
-          - **CoolingUnit** - Cooling system monitoring  
+          - **CoolingUnit** - Cooling system monitoring
           - **HeatPump** - Heat pump monitoring
-          
+
           ## 🔗 Links
           - 📖 [Documentation](https://github.com/delize/home-assistant-loggamera-integration)
           - 🐛 [Report Issues](https://github.com/delize/home-assistant-loggamera-integration/issues)
           - 🛠️ [Diagnostic Tools](https://github.com/delize/home-assistant-loggamera-integration/tree/main/tools)
           - ⚡ [Energy Dashboard Integration](https://www.home-assistant.io/docs/energy/)
           EOF
-            
+
             echo "enhanced=true" >> $GITHUB_OUTPUT
           fi
 
@@ -127,13 +127,13 @@ jobs:
         if: steps.enhance_body.outputs.enhanced == 'true' || steps.update_manifest.outputs.updated == 'true'
         run: |
           RELEASE_ID="${{ github.event.release.id }}"
-          
+
           # Update release body if needed
           if [ "${{ steps.enhance_body.outputs.enhanced }}" = "true" ]; then
             gh release edit "${{ github.event.release.tag_name }}" --notes-file enhanced_body.md
             echo "✅ Updated release body"
           fi
-          
+
           # Upload asset
           gh release upload "${{ github.event.release.tag_name }}" release_assets/loggamera.zip --clobber
           echo "✅ Uploaded loggamera.zip asset"

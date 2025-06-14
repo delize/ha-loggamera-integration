@@ -11,13 +11,13 @@ jobs:
       contents: write
       pull-requests: write
       checks: read
-    
+
     steps:
       - name: Security Check - No Token Exposure
         run: |
           echo "🔒 Security: This workflow uses only GITHUB_TOKEN (no custom PAT)"
           echo "🔒 All token values are automatically masked by GitHub"
-          
+
       - name: Check if auto-merge should be enabled
         id: check
         uses: actions/github-script@v7
@@ -27,46 +27,46 @@ jobs:
             const prLabels = context.payload.pull_request.labels.map(label => label.name);
             const isDraft = context.payload.pull_request.draft;
             const prNumber = context.payload.pull_request.number;
-            
+
             console.log(`👤 PR Author: ${prAuthor}`);
             console.log(`🏷️ PR Labels: ${prLabels.join(', ')}`);
             console.log(`📝 Is Draft: ${isDraft}`);
-            
+
             // Only auto-merge if:
             // 1. Author is github-actions[bot]
             // 2. Has 'auto-merge' label
             // 3. Not a draft
             // 4. Has 'version-bump' label (extra safety)
-            
+
             const isGitHubActionsBot = prAuthor === 'github-actions[bot]';
             const hasAutoMergeLabel = prLabels.includes('auto-merge');
             const hasVersionBumpLabel = prLabels.includes('version-bump');
-            
+
             if (!isGitHubActionsBot) {
               console.log('❌ Not created by GitHub Actions bot - skipping auto-merge');
               core.setOutput('should_auto_merge', 'false');
               return;
             }
-            
+
             if (!hasAutoMergeLabel) {
               console.log('❌ No auto-merge label - skipping');
               core.setOutput('should_auto_merge', 'false');
               return;
             }
-            
+
             if (isDraft) {
               console.log('❌ PR is draft - skipping auto-merge');
               core.setOutput('should_auto_merge', 'false');
               return;
             }
-            
+
             if (!hasVersionBumpLabel) {
               console.log('⚠️ No version-bump label - this might not be a version bump PR');
               console.log('🔒 Requiring version-bump label for safety');
               core.setOutput('should_auto_merge', 'false');
               return;
             }
-            
+
             console.log('✅ All conditions met for auto-merge');
             core.setOutput('should_auto_merge', 'true');
 
@@ -79,16 +79,16 @@ jobs:
             const maxWaitTime = 10 * 60 * 1000; // 10 minutes
             const checkInterval = 30 * 1000; // 30 seconds
             const startTime = Date.now();
-            
+
             console.log('⏳ Waiting for status checks to complete...');
-            
+
             while (Date.now() - startTime < maxWaitTime) {
               const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber
               });
-              
+
               // Check if PR is mergeable
               if (pr.mergeable_state === 'clean') {
                 console.log('✅ All status checks passed - ready to merge');
@@ -100,11 +100,11 @@ jobs:
                 console.log('❌ PR has conflicts or issues - cannot auto-merge');
                 throw new Error('PR has conflicts or is unstable');
               }
-              
+
               console.log(`⏳ Status checks still running (${pr.mergeable_state}) - waiting...`);
               await new Promise(resolve => setTimeout(resolve, checkInterval));
             }
-            
+
             throw new Error('Timeout waiting for status checks');
 
       - name: Enable auto-merge
@@ -113,7 +113,7 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
-            
+
             try {
               // Enable auto-merge with squash merge
               await github.rest.pulls.createReview({
@@ -123,30 +123,28 @@ jobs:
                 event: 'APPROVE',
                 body: '🤖 **Auto-approved by GitHub Actions**\n\nThis version bump PR was automatically created and approved for merging.\n\n✅ All checks passed\n✅ Created by trusted automation\n✅ Safe to merge'
               });
-              
+
               console.log('✅ Auto-approved the PR');
-              
+
               // Try to merge immediately if checks are passing
               const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: prNumber
               });
-              
+
               if (pr.mergeable_state === 'clean') {
                 await github.rest.pulls.merge({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   pull_number: prNumber,
                   commit_title: `${pr.title} (#${prNumber})`,
-                  commit_message: `${pr.body}
-
-🤖 Auto-merged by GitHub Actions`,
+                  commit_message: `${pr.body}\n\n🤖 Auto-merged by GitHub Actions`,
                   merge_method: 'squash'
                 });
-                
+
                 console.log('✅ Successfully auto-merged the PR');
-                
+
                 // Comment on success
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
@@ -154,14 +152,14 @@ jobs:
                   issue_number: prNumber,
                   body: '🎉 **Auto-merge successful!**\n\nThis version bump PR has been automatically merged.\n\n🚀 **Next step**: Run the [Smart Release workflow](https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/workflows/smart-release.yaml) to create a release.'
                 });
-                
+
               } else {
                 console.log(`⏳ PR not ready for merge yet (${pr.mergeable_state}) - auto-merge will happen when ready`);
               }
-              
+
             } catch (error) {
               console.error('❌ Failed to enable auto-merge:', error.message);
-              
+
               // Comment about the failure
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -169,6 +167,6 @@ jobs:
                 issue_number: prNumber,
                 body: `⚠️ **Auto-merge failed**\n\nReason: ${error.message}\n\nPlease merge this PR manually after reviewing the changes.`
               });
-              
+
               throw error;
             }

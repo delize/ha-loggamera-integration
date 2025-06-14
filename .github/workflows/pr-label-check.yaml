@@ -10,7 +10,7 @@ jobs:
     permissions:
       pull-requests: write
       issues: write
-    
+
     steps:
       - name: Security Check - Fork and Permission Validation
         uses: actions/github-script@v7
@@ -19,13 +19,13 @@ jobs:
             // Allow workflow to run for:
             // 1. PRs from the main repository (not forks)
             // 2. PRs from forks by users with write+ access
-            
+
             const prAuthor = context.payload.pull_request.user.login;
             const isFromFork = context.payload.pull_request.head.repo.full_name !== context.payload.pull_request.base.repo.full_name;
-            
+
             console.log(`👤 PR Author: ${prAuthor}`);
             console.log(`🔀 From Fork: ${isFromFork}`);
-            
+
             if (isFromFork) {
               try {
                 // Check if fork author has write access to main repo
@@ -34,9 +34,9 @@ jobs:
                   repo: context.repo.repo,
                   username: prAuthor
                 });
-                
+
                 console.log(`🔐 Fork author permission: ${permission.permission}`);
-                
+
                 if (!['write', 'admin', 'maintain'].includes(permission.permission)) {
                   console.log('⚠️ Fork PR from user without write access - limiting functionality');
                   // Set a flag for limited mode (no comments)
@@ -61,15 +61,15 @@ jobs:
           script: |
             // Get the limited mode flag from previous step
             const limitedMode = '${{ steps.security-check-fork-and-permission-validation.outputs.limited_mode }}' === 'true';
-            
+
             if (limitedMode) {
               console.log('🔒 Running in limited mode - validation only, no comments');
             }
-            
+
             // Define valid version labels
             const versionLabels = [
               'patch',
-              'minor', 
+              'minor',
               'major',
               'enhancement',
               'feature',
@@ -77,68 +77,68 @@ jobs:
               'documentation',
               'no-version-bump'
             ];
-            
+
             // Get PR labels
             const prLabels = context.payload.pull_request.labels.map(label => label.name);
             console.log(`🏷️ PR Labels: ${prLabels.join(', ')}`);
-            
+
             // Check if any version label is present
             const hasVersionLabel = prLabels.some(label => versionLabels.includes(label));
-            
+
             // Define label categories for better messaging
             const patchLabels = ['patch', 'documentation'];
             const minorLabels = ['minor', 'enhancement', 'feature'];
             const majorLabels = ['major', 'breaking'];
             const skipLabels = ['no-version-bump'];
-            
+
             const hasPatch = prLabels.some(label => patchLabels.includes(label));
             const hasMinor = prLabels.some(label => minorLabels.includes(label));
             const hasMajor = prLabels.some(label => majorLabels.includes(label));
             const hasSkip = prLabels.some(label => skipLabels.includes(label));
-            
+
             // Count how many version categories are present
             const versionCategoryCount = [hasPatch, hasMinor, hasMajor, hasSkip].filter(Boolean).length;
-            
+
             if (!hasVersionLabel) {
               // No version label - post comment and fail
               const commentBody = `## 🏷️ Version Label Required
-            
+
             This PR needs a version label to indicate the type of change:
-            
+
             ### 🔧 **Patch Release** (Bug fixes, documentation):
             - \`patch\` - Bug fixes and small improvements
             - \`documentation\` - Documentation-only changes
-            
+
             ### ✨ **Minor Release** (New features, non-breaking):
             - \`minor\` - Small new features or improvements
             - \`enhancement\` - Enhancements to existing features
             - \`feature\` - New features
-            
+
             ### 💥 **Major Release** (Breaking changes):
             - \`major\` - Major version bump
             - \`breaking\` - Breaking changes
-            
+
             ### 🚫 **No Version Bump**:
             - \`no-version-bump\` - Changes that don't affect the released version (CI, tests, etc.)
-            
+
             ---
-            
+
             **Please add ONE of the above labels to proceed with the merge.**
-            
+
             ℹ️ *This comment will be updated automatically when labels change.*`;
-            
+
               // Check if our comment already exists
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number
               });
-              
-              const existingComment = comments.data.find(comment => 
-                comment.user.login === 'github-actions[bot]' && 
+
+              const existingComment = comments.data.find(comment =>
+                comment.user.login === 'github-actions[bot]' &&
                 comment.body.includes('🏷️ Version Label Required')
               );
-              
+
               if (existingComment) {
                 // Update existing comment
                 await github.rest.issues.updateComment({
@@ -158,34 +158,34 @@ jobs:
                 });
                 console.log('📝 Posted new comment');
               }
-              
+
               // Fail the check
               core.setFailed('❌ PR must have a version label before merging');
-              
+
             } else if (versionCategoryCount > 1) {
               // Multiple version categories - conflict
               const conflictComment = `## ⚠️ Conflicting Version Labels
-            
+
             This PR has multiple conflicting version labels:
             ${hasPatch ? '- **Patch**: ' + prLabels.filter(l => patchLabels.includes(l)).join(', ') + '\n' : ''}${hasMinor ? '- **Minor**: ' + prLabels.filter(l => minorLabels.includes(l)).join(', ') + '\n' : ''}${hasMajor ? '- **Major**: ' + prLabels.filter(l => majorLabels.includes(l)).join(', ') + '\n' : ''}${hasSkip ? '- **No Version**: ' + prLabels.filter(l => skipLabels.includes(l)).join(', ') + '\n' : ''}
             Please remove conflicting labels and keep only one version category.
-            
+
             **The highest version level will be used**: ${hasMajor ? 'Major' : hasMinor ? 'Minor' : hasPatch ? 'Patch' : 'No Version'}
-            
+
             ℹ️ *This comment will be updated automatically when labels change.*`;
-            
+
               // Check if our comment already exists
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number
               });
-              
-              const existingComment = comments.data.find(comment => 
-                comment.user.login === 'github-actions[bot]' && 
+
+              const existingComment = comments.data.find(comment =>
+                comment.user.login === 'github-actions[bot]' &&
                 (comment.body.includes('🏷️ Version Label Required') || comment.body.includes('⚠️ Conflicting Version Labels'))
               );
-              
+
               if (existingComment) {
                 await github.rest.issues.updateComment({
                   owner: context.repo.owner,
@@ -201,34 +201,34 @@ jobs:
                   body: conflictComment
                 });
               }
-              
+
               console.log('⚠️ Multiple version labels detected, but allowing merge with warning');
-              
+
             } else {
               // Valid single version label - success
               const versionType = hasMajor ? 'Major' : hasMinor ? 'Minor' : hasPatch ? 'Patch' : 'No Version Bump';
               const successComment = `## ✅ Version Label Validated
-            
+
             This PR is properly labeled for a **${versionType}** release.
-            
+
             **Label**: \`${prLabels.find(l => versionLabels.includes(l))}\`
-            
+
             The version will be automatically bumped when this PR is merged.
-            
+
             ℹ️ *This validation passed automatically.*`;
-            
+
               // Check if our comment already exists and remove it since validation passed
               const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number
               });
-              
-              const existingComment = comments.data.find(comment => 
-                comment.user.login === 'github-actions[bot]' && 
+
+              const existingComment = comments.data.find(comment =>
+                comment.user.login === 'github-actions[bot]' &&
                 (comment.body.includes('🏷️ Version Label Required') || comment.body.includes('⚠️ Conflicting Version Labels') || comment.body.includes('✅ Version Label Validated'))
               );
-              
+
               if (existingComment) {
                 // Update to success message
                 await github.rest.issues.updateComment({
@@ -239,6 +239,6 @@ jobs:
                 });
                 console.log('✅ Updated comment with validation success');
               }
-              
+
               console.log(`✅ Valid version label found: ${prLabels.find(l => versionLabels.includes(l))}`);
             }

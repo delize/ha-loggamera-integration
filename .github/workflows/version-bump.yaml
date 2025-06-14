@@ -13,14 +13,14 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-    
+
     steps:
       - name: Security Check - Mask Sensitive Values
         run: |
           # Ensure any token values are masked in logs
           echo "::add-mask::${{ secrets.PAT_TOKEN }}"
           echo "🔒 Security: Token values are masked in all logs"
-          
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -45,13 +45,13 @@ jobs:
           script: |
             const prTitle = context.payload.pull_request.title;
             const prLabels = context.payload.pull_request.labels.map(label => label.name);
-            
+
             console.log(`PR Title: "${prTitle}"`);
             console.log(`PR Labels: [${prLabels.join(', ')}]`);
-            
+
             let bumpType = null;
             let shouldBump = false;
-            
+
             // Check title patterns
             if (/\[BREAKING\]|\[MAJOR\]/i.test(prTitle)) {
               bumpType = 'major';
@@ -66,7 +66,7 @@ jobs:
               shouldBump = true;
               console.log('✅ Patch bump detected from title');
             }
-            
+
             // Check labels (override title if found)
             if (prLabels.some(label => ['breaking', 'major'].includes(label))) {
               bumpType = 'major';
@@ -81,7 +81,7 @@ jobs:
               shouldBump = true;
               console.log('✅ Patch bump detected from labels');
             }
-            
+
             if (shouldBump) {
               core.setOutput('type', bumpType);
               core.setOutput('should_bump', 'true');
@@ -98,12 +98,12 @@ jobs:
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           BUMP_TYPE="${{ steps.bump_type.outputs.type }}"
-          
+
           IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
           MAJOR=${VERSION_PARTS[0]}
           MINOR=${VERSION_PARTS[1]}
           PATCH=${VERSION_PARTS[2]}
-          
+
           case $BUMP_TYPE in
             major)
               MAJOR=$((MAJOR + 1))
@@ -118,7 +118,7 @@ jobs:
               PATCH=$((PATCH + 1))
               ;;
           esac
-          
+
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -147,20 +147,20 @@ jobs:
             const prNumber = context.payload.pull_request.number;
             const prAuthor = context.payload.pull_request.user.login;
             const currentDate = new Date().toISOString().split('T')[0];
-            
+
             console.log(`📝 Updating CHANGELOG.md for version ${newVersion}`);
-            
+
             // Read current CHANGELOG.md
             let changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
-            
+
             // Create new changelog entry
             const newEntry = `## [${newVersion}] - ${currentDate}
-            
+
             ### ${bumpType.charAt(0).toUpperCase() + bumpType.slice(1)} Release
             - ${prTitle} (#${prNumber}) by @${prAuthor}
-            
+
             `;
-            
+
             // Find the [Unreleased] section and add the new entry after it
             const unreleasedSectionEnd = changelog.indexOf('## [Unreleased]');
             if (unreleasedSectionEnd !== -1) {
@@ -170,7 +170,7 @@ jobs:
                 // No other version sections found, append to end
                 insertPosition = changelog.length;
               }
-              
+
               // Insert the new entry
               changelog = changelog.slice(0, insertPosition) + '\n' + newEntry + changelog.slice(insertPosition);
             } else {
@@ -178,13 +178,13 @@ jobs:
               const headerEnd = changelog.indexOf('\n\n') + 2;
               changelog = changelog.slice(0, headerEnd) + newEntry + '\n' + changelog.slice(headerEnd);
             }
-            
+
             // Also update the Unreleased section to be empty/clean
             changelog = changelog.replace(
               /(## \[Unreleased\][\s\S]*?)(\n## \[)/,
               '## [Unreleased]\n\n### Added\n\n### Changed\n\n### Fixed\n\n### Security\n\n$2'
             );
-            
+
             // Write the updated changelog
             fs.writeFileSync('CHANGELOG.md', changelog);
             console.log('✅ CHANGELOG.md updated successfully');
@@ -199,27 +199,27 @@ jobs:
             const bumpType = '${{ steps.bump_type.outputs.type }}';
             const prTitle = context.payload.pull_request.title;
             const prNumber = context.payload.pull_request.number;
-            
+
             // Create a new branch for the version bump
             const branchName = `version-bump/v${newVersion}`;
-            
+
             try {
               // Try to push directly to main first (in case branch protection allows it)
               const { execSync } = require('child_process');
-              
+
               execSync(`git config --local user.email "action@github.com"`);
               execSync(`git config --local user.name "GitHub Action"`);
               execSync(`git add custom_components/loggamera/manifest.json CHANGELOG.md`);
               execSync(`git commit -m "🔖 Bump version to ${newVersion}
 
-              - Updated manifest.json from ${bumpType} release  
+              - Updated manifest.json from ${bumpType} release
               - Updated CHANGELOG.md with release notes
               - Triggered by: ${prTitle} (#${prNumber})
-              
+
               🤖 Generated with [Claude Code](https://claude.ai/code)
-              
+
               Co-Authored-By: Claude <noreply@anthropic.com>"`);
-              
+
               try {
                 execSync(`git push origin main`);
                 console.log('✅ Version bump pushed directly to main');
@@ -227,7 +227,7 @@ jobs:
               } catch (pushError) {
                 console.log('⚠️ Direct push failed - creating PR instead');
               }
-              
+
               // Direct push failed, create a branch and PR
 
               // Delete existing branch if it exists
@@ -239,7 +239,7 @@ jobs:
               }
               execSync(`git checkout -b ${branchName}`);
               execSync(`git push origin ${branchName}`);
-              
+
               // Create PR
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
@@ -247,33 +247,34 @@ jobs:
                 title: `🔖 Bump version to ${newVersion}`,
                 head: branchName,
                 base: 'main',
-                body: `## 🔖 Automatic Version Bump
+                body: |
+                  ## 🔖 Automatic Version Bump
 
-**New Version**: \`${newVersion}\` (${bumpType} release)
-**Triggered by**: ${prTitle} (#${prNumber})
+                  **New Version**: \`${newVersion}\` (${bumpType} release)
+                  **Triggered by**: ${prTitle} (#${prNumber})
 
-### 📝 Changes Made:
-- ✅ Updated \`manifest.json\` version to \`${newVersion}\`
-- ✅ Updated \`CHANGELOG.md\` with release notes
+                  ### 📝 Changes Made:
+                  - ✅ Updated \`manifest.json\` version to \`${newVersion}\`
+                  - ✅ Updated \`CHANGELOG.md\` with release notes
 
-### 🚀 Next Steps:
-1. Review and merge this PR
-2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
+                  ### 🚀 Next Steps:
+                  1. Review and merge this PR
+                  2. Create a release using the [Smart Release workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/smart-release.yaml)
 
----
+                  ---
 
-🤖 This PR was created automatically by the version bump workflow.
+                  🤖 This PR was created automatically by the version bump workflow.
 
-⚡ **Auto-merge ready** - This PR can be safely merged without additional review.`
+                  ⚡ **Auto-merge ready** - This PR can be safely merged without additional review.
               });
 
               console.log(`✅ Created version bump PR: #${pr.number}`);
               console.log(`🔗 PR URL: ${pr.html_url}`);
-              
+
               // Trigger required status checks manually
               try {
                 console.log('🔄 Triggering required status checks...');
-                
+
                 // Trigger lint workflow
                 await github.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -281,15 +282,15 @@ jobs:
                   workflow_id: 'lint.yaml',
                   ref: branchName
                 });
-                
-                // Trigger hassfest workflow  
+
+                // Trigger hassfest workflow
                 await github.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   workflow_id: 'hassfest.yaml',
                   ref: branchName
                 });
-                
+
                 // Trigger validate workflow
                 await github.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -297,13 +298,13 @@ jobs:
                   workflow_id: 'validate.yaml',
                   ref: branchName
                 });
-                
+
                 console.log('✅ Status checks triggered');
               } catch (triggerError) {
                 console.log('⚠️ Could not trigger status checks manually:', triggerError.message);
                 console.log('🔄 Checks should trigger automatically on PR creation');
               }
-              
+
               // Add auto-merge label if it exists
               try {
                 await github.rest.issues.addLabels({
@@ -315,10 +316,10 @@ jobs:
               } catch (labelError) {
                 console.log('ℹ️ Could not add labels (labels may not exist)');
               }
-              
+
               core.setOutput('pr_number', pr.number);
               core.setOutput('pr_url', pr.html_url);
-              
+
             } catch (error) {
               console.error('❌ Failed to create version bump:', error.message);
               core.setFailed(`Failed to create version bump: ${error.message}`);
@@ -333,26 +334,26 @@ jobs:
             const bumpType = '${{ steps.bump_type.outputs.type }}';
             const prNumber = '${{ steps.create-version-bump-branch-and-pr.outputs.pr_number }}';
             const prUrl = '${{ steps.create-version-bump-branch-and-pr.outputs.pr_url }}';
-            
+
             let commentBody = `🔖 **Version Bump Triggered!**
-            
+
             This PR triggered a **${bumpType}** version bump to \`v${newVersion}\`.`;
-            
+
             if (prNumber && prUrl) {
               commentBody += `
-              
+
               📋 **Version Bump PR Created**: #${prNumber}
               🔗 **Review and merge**: ${prUrl}
-              
+
               ✅ Once the version bump PR is merged, you can create a release using the [Smart Release workflow](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/smart-release.yaml)`;
             } else {
               commentBody += `
-              
+
               ✅ **Version bump applied directly to main branch.**
-              
+
               🚀 Ready to create a release? Run the [Smart Release workflow](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/smart-release.yaml) with version \`${newVersion}\``;
             }
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

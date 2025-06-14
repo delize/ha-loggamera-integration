@@ -2,15 +2,15 @@
 - name: "patch"
   color: "0E8A16"
   description: "Patch version bump (bug fixes, documentation)"
-  
+
 - name: "minor"
   color: "1D76DB"
   description: "Minor version bump (new features, non-breaking changes)"
-  
+
 - name: "major"
   color: "B60205"
   description: "Major version bump (breaking changes)"
-  
+
 - name: "breaking"
   color: "B60205"
   description: "Breaking change (forces major version bump)"
@@ -19,7 +19,7 @@
 - name: "feature"
   color: "0052CC"
   description: "New feature (minor version bump)"
-  
+
 - name: "enhancement"
   color: "A2EEEF"
   description: "Enhancement to existing feature (minor version bump)"

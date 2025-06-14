@@ -26,7 +26,7 @@ Thank you for your interest in contributing to the Loggamera integration!
 We use several tools to maintain code quality:
 
 - **Black** for code formatting
-- **isort** for import sorting  
+- **isort** for import sorting
 - **flake8** for linting
 - **mypy** for type checking
 

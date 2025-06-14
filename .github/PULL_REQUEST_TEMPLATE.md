@@ -15,10 +15,10 @@ When this PR is merged, the version will be automatically bumped based on the ty
 How It Works:
 
   For Automatic Releases (Most Common):
-  
+
   1. Label PR with appropriate title:
     - `patch` - Force patch version bump
-    - `minor` - Force minor version bump  
+    - `minor` - Force minor version bump
     - `major` - Force major version bump
     - `breaking` - Force major version bump
   2. Merge PR → Automatically:
@@ -36,7 +36,7 @@ How It Works:
 
 ## Device Testing
 - [ ] Tested with PowerMeter devices
-- [ ] Tested with RoomSensor devices  
+- [ ] Tested with RoomSensor devices
 - [ ] Tested with WaterMeter devices
 - [ ] Tested with scenario controls
 

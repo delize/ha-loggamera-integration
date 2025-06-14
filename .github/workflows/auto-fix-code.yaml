@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    
+
     steps:
       - name: Check trigger comment and permissions
         id: auth-check
@@ -22,36 +22,36 @@ jobs:
             const comment = context.payload.comment;
             const pr = context.payload.issue;
             const commenter = comment.user.login;
-            
+
             console.log(`Comment by: ${commenter}`);
             console.log(`PR author: ${pr.user.login}`);
             console.log(`Comment body: ${comment.body}`);
-            
+
             // Check if comment contains the trigger command
             if (!comment.body.includes('/fix-formatting')) {
               console.log('❌ Comment does not contain /fix-formatting command');
               return;
             }
-            
+
             // Get PR details
             const { data: prData } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr.number
             });
-            
+
             core.setOutput('pr_author', prData.user.login);
             core.setOutput('pr_branch', prData.head.ref);
             core.setOutput('pr_repo', prData.head.repo.full_name);
-            
+
             let isAuthorized = false;
             let authReason = '';
-            
+
             // Check if commenter is PR author
             if (commenter === prData.user.login) {
               isAuthorized = true;
               authReason = 'PR author';
-            } 
+            }
             // Check if commenter is repository owner
             else if (commenter === context.repo.owner) {
               isAuthorized = true;
@@ -65,7 +65,7 @@ jobs:
                   repo: context.repo.repo,
                   username: commenter
                 });
-                
+
                 const allowedLevels = ['write', 'admin', 'maintain'];
                 if (allowedLevels.includes(permission.permission)) {
                   isAuthorized = true;
@@ -75,7 +75,7 @@ jobs:
                 console.log(`User ${commenter} is not a collaborator`);
               }
             }
-            
+
             if (!isAuthorized) {
               // Post denial comment
               await github.rest.issues.createComment({
@@ -83,19 +83,19 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: `❌ @${commenter} You don't have permission to run auto-fix on this PR.
-                
+
                 **Who can use \`/fix-formatting\`:**
                 - 👤 PR author (${prData.user.login})
                 - 👑 Repository owner
                 - 🤝 Repository collaborators with write access
-                
+
                 If you're a collaborator, make sure you have write access to this repository.`
               });
-              
+
               core.setFailed(`❌ Access denied for ${commenter}. Must be PR author, repo owner, or collaborator.`);
               return;
             }
-            
+
             // Rate limiting check
             const { data: runs } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
@@ -103,12 +103,12 @@ jobs:
               workflow_id: 'auto-fix-code.yaml',
               per_page: 20
             });
-            
+
             const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-            const recentRuns = runs.workflow_runs.filter(run => 
+            const recentRuns = runs.workflow_runs.filter(run =>
               new Date(run.created_at) > oneHourAgo
             );
-            
+
             if (recentRuns.length >= 3) {
               await github.rest.issues.createComment({
                 issue_number: pr.number,
@@ -116,35 +116,35 @@ jobs:
                 repo: context.repo.repo,
                 body: `⏰ Rate limit reached. Auto-fix has been used ${recentRuns.length} times in the last hour. Please wait before trying again.`
               });
-              
+
               core.setFailed(`Rate limit exceeded: ${recentRuns.length}/3 runs in last hour`);
               return;
             }
-            
+
             // Success
             core.setOutput('authorized', 'true');
             core.setOutput('auth_reason', authReason);
             console.log(`✅ Authorization successful: ${authReason}`);
-            
+
             // Post acknowledgment comment
             await github.rest.issues.createComment({
               issue_number: pr.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `🤖 **Auto-fix triggered by @${commenter}** (${authReason})
-              
+
               Starting code formatting... Please wait while I:
               - 🎨 Apply Black formatting
               - 📦 Sort imports with isort
               - 🔍 Fix auto-fixable issues
-              
+
               This may take a minute. I'll update you when it's complete!`
             });
 
       - name: Early exit if not authorized
         if: steps.auth-check.outputs.authorized != 'true'
         run: exit 1
-            
+
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
@@ -166,7 +166,7 @@ jobs:
         run: |
           echo "🔧 Running Black formatter..."
           black custom_components/ --line-length=88
-        
+
       - name: Run isort
         run: |
           echo "🔧 Running isort..."
@@ -194,7 +194,7 @@ jobs:
 
           - Applied Black formatting
           - Sorted imports with isort
-          
+
           Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
           git push
 
@@ -204,21 +204,21 @@ jobs:
           script: |
             const changesMade = '${{ steps.check-changes.outputs.changes_made }}' === 'true';
             const prNumber = context.payload.issue.number;
-            
-            const message = changesMade 
+
+            const message = changesMade
               ? `## ✅ Code Auto-Fixed Successfully!
-              
+
               Your code has been automatically formatted and the changes have been pushed to this PR.
-              
+
               **Changes applied:**
               - 🎨 Black code formatting
               - 📦 Import sorting with isort
-              
+
               Please review the changes and re-run any tests if needed.`
               : `## ✅ No Changes Needed
-              
+
               Your code is already properly formatted! No changes were made.`;
-            
+
             github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
