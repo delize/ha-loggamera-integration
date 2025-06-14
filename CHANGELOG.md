@@ -8,19 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Automatic version bumping and release creation
-- GitHub Actions workflows for validation and testing
-- Comprehensive diagnostic tools
-- Support for multiple Loggamera device types
 
 ### Changed
-- Improved error handling and logging
-- Enhanced API key security (removed hardcoded keys)
-- Updated documentation and contribution guidelines
+
+### Fixed
 
 ### Security
-- Removed all hardcoded API keys from codebase
-- Added security checks in CI/CD pipeline
+
+
+## [0.3.6] - 2025-06-14
+
+### Patch Release
+- Test new pr version bump (#45) by @delize
+
 
 ## [0.1.23] - Current
 
