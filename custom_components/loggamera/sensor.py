@@ -486,6 +486,38 @@ async def async_setup_entry(  # noqa: C901
                         f"Created RawData sensor: {entity.name} (disabled by default)"
                     )
 
+    # Create organization-level device with device count sensor
+    if coordinator.data.get("devices"):
+        device_count = len(coordinator.data["devices"])
+        organization_name = (
+            f"Organization {api.organization_id}"
+            if api.organization_id
+            else "Loggamera Organization"
+        )
+        # Create organization device count sensor
+        org_value_data = {
+            "Name": "device_count",
+            "Value": str(device_count),
+            "UnitType": "Count",
+            "UnitPresentation": "devices",
+            "ValueType": "INTEGER",
+            "ClearTextName": "Total Device Count",
+        }
+        org_entity = LoggameraSensor(
+            coordinator=coordinator,
+            api=api,
+            device_id="organization",
+            device_type="Organization",
+            device_name=organization_name,
+            value_data=org_value_data,
+            hass=hass,
+            is_organization=True,
+        )
+        entities.append(org_entity)
+        _LOGGER.debug(
+            f"Created organization sensor: {org_entity.name} with {device_count} devices"  # noqa: E501
+        )
+
     if entities:
         async_add_entities(entities)
         _LOGGER.info(f"Added {len(entities)} Loggamera sensor entities")
@@ -496,7 +528,7 @@ async def async_setup_entry(  # noqa: C901
 class LoggameraSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Loggamera sensor."""
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         coordinator,
         api,
@@ -506,6 +538,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         value_data,
         hass,
         is_raw_data=False,
+        is_organization=False,
     ):
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -516,6 +549,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self.value_data = value_data
         self.hass = hass
         self.is_raw_data = is_raw_data
+        self.is_organization = is_organization
         self.sensor_name = value_data.get("Name", "unknown")
 
         # Initialize sensor attributes
@@ -559,7 +593,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             dynamic_info = self._detect_sensor_attributes_dynamically()
             friendly_name = dynamic_info.get("name") if dynamic_info else None
 
-        # Use friendly name if available, otherwise use ClearTextName, otherwise use sensor name
+        # Use friendly name if available, otherwise use ClearTextName or sensor name
         display_name = (
             friendly_name
             if friendly_name
@@ -574,15 +608,31 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             end = device_name.rfind(")")
             device_identifier = device_name[start : end + 1]
 
-        # Set entity naming based on whether this is RawData or standard device data
-        if self.is_raw_data:
-            # Use rawdata naming pattern: rawdata_lgh_31401_73785_energy_phase_3
-            # Extract apartment/unit name (part before first parenthesis)
-            unit_name = device_name.split("(")[0].strip().lower().replace(" ", "_")
-            # Clean sensor name for entity ID
-            clean_sensor_name = display_name.lower().replace(" ", "_")
+        # Clean names for entity IDs (remove special characters, spaces to underscores)
+        clean_sensor_name = (
+            display_name.lower()
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace(":", "")
+        )
+        clean_device_name = (
+            device_name.lower()
+            .replace(" ", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace(":", "")
+        )
+
+        # Set entity naming based on device type
+        if self.is_organization:
+            # Use organization naming pattern: loggamera_org_{sensor_name}
+            self._attr_unique_id = f"loggamera_org_{clean_sensor_name}"
+            self._attr_name = display_name
+        elif self.is_raw_data:
+            # Use rawdata naming pattern: rawdata_{sensor}_{id}_{device}
             self._attr_unique_id = (
-                f"rawdata_{unit_name}_{device_id}_{clean_sensor_name}"
+                f"rawdata_{clean_sensor_name}_{device_id}_{clean_device_name}"
             )
 
             # Display name: "Energy Phase 3 - (D5 mätare: 99954807)"
@@ -594,9 +644,10 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             # Disable RawData entities by default
             self._attr_entity_registry_enabled_default = False
         else:
-            # Use standard naming pattern: loggamera_73785_total_energy_consumption
-            clean_sensor_name = display_name.lower().replace(" ", "_")
-            self._attr_unique_id = f"loggamera_{device_id}_{clean_sensor_name}"
+            # Use standard naming pattern: loggamera_{sensor}_{id}_{device}
+            self._attr_unique_id = (
+                f"loggamera_{clean_sensor_name}_{device_id}_{clean_device_name}"
+            )
 
             # Display name: "Total Energy Consumption - (D5 mätare: 99954807)"
             self._attr_name = (
@@ -999,6 +1050,14 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data or "device_data" not in self.coordinator.data:
             return None
 
+        # Handle organization device sensor
+        if self.is_organization:
+            # For organization sensors, return live device count
+            if self.sensor_name == "device_count":
+                devices = self.coordinator.data.get("devices", [])
+                return len(devices)
+            return None
+
         # Determine which data source to use based on sensor type
         if self.is_raw_data:
             # For RawData sensors, look in the rawdata_{device_id} key
@@ -1055,6 +1114,16 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             suggested_area = "Climate"
         elif self.device_type in ["HeatPump", "CoolingUnit"]:
             suggested_area = "HVAC"
+
+        # Handle organization device differently
+        if self.is_organization:
+            return DeviceInfo(
+                identifiers={(DOMAIN, "organization")},
+                name=self.device_name,
+                manufacturer="Loggamera",
+                model="Loggamera Organization",
+                suggested_area="Energy",
+            )
 
         return DeviceInfo(
             identifiers={(DOMAIN, str(self.device_id))},
