@@ -688,9 +688,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.TEMPERATURE,
                     "unit": UnitOfTemperature.CELSIUS,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -715,9 +717,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.ENERGY,
                     "unit": UnitOfEnergy.KILO_WATT_HOUR,
                     "state_class": SensorStateClass.TOTAL_INCREASING,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -745,9 +749,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.POWER,
                     "unit": unit,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -765,9 +771,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.CURRENT,
                     "unit": UnitOfElectricCurrent.AMPERE,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -785,9 +793,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.VOLTAGE,
                     "unit": UnitOfElectricPotential.VOLT,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -819,9 +829,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.WATER,
                     "unit": unit,
                     "state_class": SensorStateClass.TOTAL_INCREASING,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -844,9 +856,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.HUMIDITY,
                     "unit": PERCENTAGE,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -869,9 +883,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": None,
                     "unit": None,
                     "state_class": None,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.debug(
@@ -887,9 +903,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": None,
                     "unit": unit,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": clear_text_name.title()
-                    if clear_text_name
-                    else sensor_name.title(),
+                    "name": (
+                        clear_text_name.title()
+                        if clear_text_name
+                        else sensor_name.title()
+                    ),
                 }
             )
             _LOGGER.info(
