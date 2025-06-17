@@ -1009,6 +1009,15 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
     def _set_sensor_attributes(self):
         """Set device class, state class, and unit of measurement based on sensor type."""  # noqa: E501
+        # Handle organization sensors specially - no device class, units, or dynamic detection
+        if self.is_organization:
+            self._attr_device_class = None
+            self._attr_state_class = None
+            self._attr_native_unit_of_measurement = None
+            if self.sensor_name == "device_count":
+                self._attr_icon = "mdi:counter"
+            return
+
         # Set icon for boolean alarm sensors
         if self._is_boolean and self.sensor_name == "alarmActive":
             if self.value_data.get("Value", "").lower() == "true":
