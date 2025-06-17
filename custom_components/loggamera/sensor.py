@@ -65,6 +65,13 @@ SENSOR_MAP = {
         "name": "Alarm Context",
         "icon": "mdi:alert-box",
     },
+    "device_count": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Total Device Count",
+        "icon": "mdi:counter",
+    },
     # RawData specific values - these are the most common ones
     "544352": {
         "device_class": SensorDeviceClass.ENERGY,
@@ -499,7 +506,7 @@ async def async_setup_entry(  # noqa: C901
             "Name": "device_count",
             "Value": str(device_count),
             "UnitType": "Count",
-            "UnitPresentation": "devices",
+            "UnitPresentation": "",
             "ValueType": "INTEGER",
             "ClearTextName": "Total Device Count",
         }
