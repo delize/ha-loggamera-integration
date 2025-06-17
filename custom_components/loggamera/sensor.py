@@ -1159,7 +1159,19 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     def available(self):
         """Return if entity is available."""
         # Check if coordinator has data
-        if not self.coordinator.data or "device_data" not in self.coordinator.data:
+        if not self.coordinator.data:
+            return False
+
+        # Handle organization sensors separately
+        if self.is_organization:
+            # Organization sensors are available if we have coordinator data
+            # and the devices list is available
+            if self.sensor_name == "device_count":
+                return "devices" in self.coordinator.data
+            return True
+
+        # For regular sensors, check device_data
+        if "device_data" not in self.coordinator.data:
             return False
 
         # Determine which data source to use based on sensor type

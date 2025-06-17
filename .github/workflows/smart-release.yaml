@@ -225,28 +225,22 @@ jobs:
             echo "" >> release_notes.md
           fi
 
-          # Add changelog from the maintained CHANGELOG.md file
-          if [ -f CHANGELOG.md ]; then
-            echo "## 📝 Recent Changes" >> release_notes.md
+          # Add changelog - always use the generated cumulative changelog for comprehensive release notes
+          echo "## 📝 Recent Changes" >> release_notes.md
+          echo "" >> release_notes.md
+
+          # For releases, always use the cumulative changelog for better visibility
+          # For pre-releases, also use cumulative changelog (already working correctly)
+          cat changelog.md >> release_notes.md
+
+          # Optionally add CHANGELOG.md content as additional context if it exists and has this version
+          if [ -f CHANGELOG.md ] && grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "" >> release_notes.md
+            echo "**From CHANGELOG.md:**" >> release_notes.md
             echo "" >> release_notes.md
 
-            # Extract the latest version section from CHANGELOG.md
-            VERSION="${{ steps.get_version.outputs.version }}"
-
-            # Try to find this version in CHANGELOG.md
-            if grep -q "## \[$VERSION\]" CHANGELOG.md; then
-              echo "**From CHANGELOG.md:**" >> release_notes.md
-              echo "" >> release_notes.md
-
-              # Extract the section for this version
-              sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2 >> release_notes.md
-            else
-              # Fall back to generated changelog
-              cat changelog.md >> release_notes.md
-            fi
-          else
-            # Fall back to generated changelog if CHANGELOG.md doesn't exist
-            cat changelog.md >> release_notes.md
+            # Extract the section for this version as supplementary information
+            sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' | tail -n +2 >> release_notes.md
           fi
           echo "" >> release_notes.md
 
