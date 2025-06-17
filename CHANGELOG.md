@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.7.2] - 2025-06-17
+
+### Patch Release
+- Update smart release function and sensor issues (#56) by @delize
+
+
 ## [0.7.1] - 2025-06-17
 
 ### Patch Release
