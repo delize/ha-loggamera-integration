@@ -75,7 +75,7 @@ SENSOR_MAP = {
     "544353": {
         "device_class": SensorDeviceClass.ENERGY,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
-        "state_class": SensorStateClass.MEASUREMENT,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "name": "Total Energy Interval",
     },  # Energy imported interval
     "544399": {
@@ -248,7 +248,7 @@ SENSOR_MAP = {
     "550224": {
         "device_class": SensorDeviceClass.ENERGY,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
-        "state_class": SensorStateClass.MEASUREMENT,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
         "name": "Energy Generated Interval",
     },  # Exported energy interval
     "550205": {
