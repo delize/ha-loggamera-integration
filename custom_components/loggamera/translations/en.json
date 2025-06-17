@@ -1,5 +1,4 @@
 {
-  "title": "Loggamera",
   "config": {
     "abort": {
       "already_configured": "This organization is already configured"
@@ -21,6 +20,25 @@
       }
     }
   },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "Energy"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "water": {
+        "name": "Water Consumption"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -32,23 +50,5 @@
       }
     }
   },
-  "entity": {
-    "sensor": {
-      "power": {
-        "name": "Power"
-      },
-      "energy": {
-        "name": "Energy"
-      },
-      "water": {
-        "name": "Water Consumption"
-      },
-      "temperature": {
-        "name": "Temperature"
-      },
-      "humidity": {
-        "name": "Humidity"
-      }
-    }
-  }
+  "title": "Loggamera"
 }

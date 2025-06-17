@@ -1,16 +1,16 @@
 {
-  "domain": "loggamera",
-  "name": "Loggamera",
   "codeowners": [
     "@delize"
   ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/delize/home-assistant-loggamera-integration",
+  "domain": "loggamera",
   "homekit": {},
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/delize/home-assistant-loggamera-integration/issues",
+  "name": "Loggamera",
   "requirements": [
     "requests>=2.25.0",
     "certifi>=2025.04.26"
