@@ -1009,7 +1009,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
     def _set_sensor_attributes(self):
         """Set device class, state class, and unit of measurement based on sensor type."""  # noqa: E501
-        # Handle organization sensors specially - no device class, units, or dynamic detection
+        # Handle organization sensors specially - no device class, units, or dynamic detection # noqa: E501
         if self.is_organization:
             self._attr_device_class = None
             self._attr_state_class = None
