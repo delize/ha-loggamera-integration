@@ -504,7 +504,7 @@ async def async_setup_entry(  # noqa: C901
         # Create organization device count sensor
         org_value_data = {
             "Name": "device_count",
-            "Value": str(device_count),
+            "Value": device_count,
             "UnitType": "Count",
             "UnitPresentation": "",
             "ValueType": "INTEGER",
@@ -1009,13 +1009,19 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
     def _set_sensor_attributes(self):
         """Set device class, state class, and unit of measurement based on sensor type."""  # noqa: E501
-        # Handle organization sensors specially - no device class, units, or dynamic detection # noqa: E501
+        # Handle organization sensors specially
         if self.is_organization:
-            self._attr_device_class = None
-            self._attr_state_class = None
-            self._attr_native_unit_of_measurement = None
             if self.sensor_name == "device_count":
+                # Device count sensor should be trackable as a measurement
+                self._attr_device_class = None
+                self._attr_state_class = SensorStateClass.MEASUREMENT
+                self._attr_native_unit_of_measurement = "devices"
                 self._attr_icon = "mdi:counter"
+            else:
+                # Other organization sensors have no device class, units, or detection
+                self._attr_device_class = None
+                self._attr_state_class = None
+                self._attr_native_unit_of_measurement = None
             return
 
         # Set icon for boolean alarm sensors
