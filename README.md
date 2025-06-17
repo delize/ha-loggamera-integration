@@ -45,10 +45,22 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
 - **Future-Proof Architecture**: Handles new device types and unknown sensors automatically
 - **Extensive Logging**: Detailed logging for debugging and development
 
-## Example Screenshot
+## Example Screenshots
+
+### Example Screenshot of Integration Functionality
 
 ![Example Screenshot of Integration Functionality](docs/assets/README/demo-screenshot-1.png)
+
+### Example Screenshot of Organization Functionality
+
 ![Example Screenshot of Organization Functionality](docs/assets/README/demo-screenshot-2.png)
+
+### Example Screenshot of PowerMeter Functionality (Raw Data Entities Disabled)
+
+![Example Screenshot of PowerMeter Functionality (All Entities Enabled)](docs/assets/README/demo-screenshot-4.png)
+
+### Example Screenshot of PowerMeter Functionality (Raw Data Entities Enabled)
+
 ![Example Screenshot of PowerMeter Functionality (All Entities Enabled)](docs/assets/README/demo-screenshot-3.png)
 
 ## Installation
