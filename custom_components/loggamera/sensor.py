@@ -84,6 +84,107 @@ SENSOR_MAP = {
         "state_class": SensorStateClass.MEASUREMENT,
         "name": "Power",
     },  # Power
+    # Common HeatPump RawData temperature sensors
+    "541388": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Hot Water Temperature",
+    },  # Varmvattentemp
+    "541125": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Set Room Temperature",
+    },  # Inställd rumstemperatur
+    "541119": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Outdoor Temperature",
+    },  # Utetemperatur
+    "541655": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Hot Gas Temperature",
+    },  # Hetgas (T6)
+    "541104": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Heat Carrier 1",
+    },  # Värmebärare 1
+    "541646": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Heat Carrier Outgoing",
+    },  # Värmebärare utgående (T8)
+    "541647": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Heat Carrier Incoming",
+    },  # Värmebärare ingående (T9)
+    "541651": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Brine Incoming",
+    },  # Köldbärare ingående (T10)
+    "541648": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Brine Outgoing",
+    },  # Köldbärare utgående (T11)
+    # HeatPump endpoint standard sensor names
+    "heatCarrierInTempInDeg": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Heat Carrier Inlet Temperature",
+    },
+    "heatCarrierOutTempInDeg": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Heat Carrier Outlet Temperature",
+    },
+    "brineInTempInDeg": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Brine Inlet Temperature",
+    },
+    "brineOutTempInDeg": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Brine Outlet Temperature",
+    },
+    "reducedModeActive": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Reduced Mode",
+        "icon": "mdi:power-sleep",
+    },
+    "pumpActivity": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Pump Activity",
+        "icon": "mdi:pump",
+    },
+    "filterAlarmIsActive": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Filter Alarm",
+        "icon": "mdi:air-filter",
+    },
     "544463": {
         "device_class": SensorDeviceClass.ENERGY,
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
@@ -190,6 +291,19 @@ WATER_MAPPINGS = {
         "device_class": SensorDeviceClass.WATER,
         "unit": UnitOfVolume.CUBIC_METERS,
         "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Water Consumption",
+    },
+    "ConsumedTotalInM3": {  # Note: Capital M3 variant
+        "device_class": SensorDeviceClass.WATER,
+        "unit": UnitOfVolume.CUBIC_METERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Water Consumption",
+    },
+    "ConsumedSinceMidnightInLiters": {
+        "device_class": SensorDeviceClass.WATER,
+        "unit": UnitOfVolume.LITERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Water Used Since Midnight",
     },
 }
 
@@ -325,6 +439,52 @@ async def async_setup_entry(  # noqa: C901
         else:
             _LOGGER.warning(f"No 'Values' data for device {device_name}")
 
+    # Process RawData entities separately (disabled by default)
+    _LOGGER.debug("Processing RawData entities...")
+    for device in coordinator.data.get("devices", []):
+        device_id = device["Id"]
+        device_type = device["Class"]
+        device_name = device.get("Title", f"{device_type} {device_id}")
+
+        # Look for separately collected RawData
+        raw_data_key = f"rawdata_{device_id}"
+        raw_data = coordinator.data.get("device_data", {}).get(raw_data_key)
+
+        if (
+            raw_data
+            and "Data" in raw_data
+            and raw_data["Data"]
+            and "Values" in raw_data["Data"]
+        ):
+            _LOGGER.debug(
+                f"Processing {len(raw_data['Data']['Values'])} RawData values for {device_name}"
+            )
+
+            for value in raw_data["Data"]["Values"]:
+                # Create unique ID to avoid conflicts with processed sensors
+                unique_id = (
+                    f"rawdata_{device_id}_{device_type.lower()}_"
+                    f"{value.get('Name', 'unknown')}"
+                )
+
+                if unique_id not in processed_unique_ids:
+                    # Create RawData sensor
+                    entity = LoggameraSensor(
+                        coordinator=coordinator,
+                        api=api,
+                        device_id=device_id,
+                        device_type=device_type,
+                        device_name=device_name,
+                        value_data=value,
+                        hass=hass,
+                        is_raw_data=True,  # Flag to indicate this is RawData
+                    )
+                    entities.append(entity)
+                    processed_unique_ids.add(unique_id)
+                    _LOGGER.debug(
+                        f"Created RawData sensor: {entity.name} (disabled by default)"
+                    )
+
     if entities:
         async_add_entities(entities)
         _LOGGER.info(f"Added {len(entities)} Loggamera sensor entities")
@@ -336,7 +496,15 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Loggamera sensor."""
 
     def __init__(
-        self, coordinator, api, device_id, device_type, device_name, value_data, hass
+        self,
+        coordinator,
+        api,
+        device_id,
+        device_type,
+        device_name,
+        value_data,
+        hass,
+        is_raw_data=False,
     ):
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -346,14 +514,40 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         self.device_name = device_name
         self.value_data = value_data
         self.hass = hass
+        self.is_raw_data = is_raw_data
         self.sensor_name = value_data.get("Name", "unknown")
 
         # Initialize sensor attributes
         self._sensor_value = None
         self._sensor_unit = value_data.get("UnitPresentation", "")
         self._unit_type = value_data.get("UnitType", "")
-        self._is_boolean = value_data.get("ValueType") == "BOOLEAN"
-        self._is_string = value_data.get("ValueType") == "STRING"
+
+        # Determine value type - handle null ValueType by inferring from UnitType
+        value_type = value_data.get("ValueType")
+        unit_type = value_data.get("UnitType", "")
+        value = value_data.get("Value", "")
+
+        # If ValueType is null (common in RawData responses), infer from UnitType
+        if value_type is None:
+            if unit_type in ["BooleanOnOff", "BooleanYesNo"]:
+                self._is_boolean = True
+                self._is_string = False
+            elif unit_type == "Unitless" and str(value).replace(".", "").isdigit():
+                # Unitless numeric values (like counters, indexes)
+                self._is_boolean = False
+                self._is_string = False
+            elif unit_type in ["DegreesCelsius", "DegreesKelvin", "DegreesFahrenheit"]:
+                # Temperature values are always numeric
+                self._is_boolean = False
+                self._is_string = False
+            else:
+                # Default to numeric for other measurement types
+                self._is_boolean = False
+                self._is_string = False
+        else:
+            # Use explicit ValueType when available
+            self._is_boolean = value_type == "BOOLEAN"
+            self._is_string = value_type == "STRING"
 
         # Get friendly name from SENSOR_MAP if available
         sensor_info = SENSOR_MAP.get(self.sensor_name, {})
@@ -366,13 +560,31 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             else value_data.get("ClearTextName", value_data.get("Name", "Unknown"))
         )
 
-        # Set entity description with friendly name
-        self._attr_name = f"{device_name} {display_name}"
-        self._attr_unique_id = f"loggamera_{device_id}_{self.sensor_name}"
+        # Set entity naming based on whether this is RawData or standard device data
+        if self.is_raw_data:
+            # Use rawdata naming pattern: rawdata_{deviceid}_{devicetype}_{sensorname}
+            device_type_lower = device_type.lower()
+            self._attr_unique_id = (
+                f"rawdata_{device_id}_{device_type_lower}_{self.sensor_name}"
+            )
+            # Also update the display name to indicate this is raw data
+            self._attr_name = f"RawData {device_name} {display_name}"
+            # Disable RawData entities by default
+            self._attr_entity_registry_enabled_default = False
+        else:
+            # Use standard naming pattern for regular device sensors
+            self._attr_unique_id = f"loggamera_{device_id}_{self.sensor_name}"
+            self._attr_name = f"{device_name} {display_name}"
 
-        # For device with device ID in string format, ensure we have a consistent format
+        # Ensure consistent device ID format
         try:
-            self._attr_unique_id = f"loggamera_{int(device_id)}_{self.sensor_name}"
+            if self.is_raw_data:
+                device_type_lower = device_type.lower()
+                self._attr_unique_id = (
+                    f"rawdata_{int(device_id)}_{device_type_lower}_{self.sensor_name}"
+                )
+            else:
+                self._attr_unique_id = f"loggamera_{int(device_id)}_{self.sensor_name}"
         except (ValueError, TypeError):
             pass
 
@@ -399,7 +611,15 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
             # For boolean values, convert to boolean
             if self._is_boolean:
-                return value.lower() == "true"
+                # Handle various boolean representations
+                value_lower = value.lower()
+                if value_lower in ["true", "1", "on", "yes"]:
+                    return True
+                elif value_lower in ["false", "0", "off", "no", ""]:
+                    return False
+                else:
+                    # Default to false for unknown boolean values
+                    return False
 
             # For string values, return as is (but sanitized)
             if self._is_string:
@@ -418,6 +638,10 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # If it's already a boolean, return it
         if isinstance(value, bool) and self._is_boolean:
             return value
+
+        # Handle numeric boolean values (0/1)
+        if self._is_boolean and isinstance(value, (int, float)):
+            return bool(value)
 
         # If it's already a number, return it
         if (
@@ -472,10 +696,18 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data or "device_data" not in self.coordinator.data:
             return None
 
-        device_data = self.coordinator.data["device_data"].get(self.device_id)
+        # Determine which data source to use based on sensor type
+        if self.is_raw_data:
+            # For RawData sensors, look in the rawdata_{device_id} key
+            data_key = f"rawdata_{self.device_id}"
+        else:
+            # For standard sensors, use device_id directly
+            data_key = self.device_id
+
+        device_data = self.coordinator.data["device_data"].get(data_key)
         if not device_data:
-            # Try string version of device_id as fallback
-            device_data = self.coordinator.data["device_data"].get(str(self.device_id))
+            # Try string version of data_key as fallback
+            device_data = self.coordinator.data["device_data"].get(str(data_key))
 
         if (
             not device_data
@@ -524,11 +756,19 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data or "device_data" not in self.coordinator.data:
             return False
 
+        # Determine which data source to use based on sensor type
+        if self.is_raw_data:
+            # For RawData sensors, look in the rawdata_{device_id} key
+            data_key = f"rawdata_{self.device_id}"
+        else:
+            # For standard sensors, use device_id directly
+            data_key = self.device_id
+
         # Check if our device data exists
-        device_data = self.coordinator.data["device_data"].get(self.device_id)
+        device_data = self.coordinator.data["device_data"].get(data_key)
         if not device_data:
-            # Try string version of device_id as fallback
-            device_data = self.coordinator.data["device_data"].get(str(self.device_id))
+            # Try string version of data_key as fallback
+            device_data = self.coordinator.data["device_data"].get(str(data_key))
             if not device_data:
                 return False
 

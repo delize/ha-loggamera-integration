@@ -196,20 +196,38 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                 # Don't fail the whole update if scenarios aren't available
                 pass
 
-            # Fetch device data for each device - this will now fetch both
-            # RawData and PowerMeter data for PowerMeter devices as implemented
-            # in the API client
+            # Fetch device data for each device
             for device in updated_data["devices"]:
                 device_id = device["Id"]
                 device_type = device["Class"]
                 try:
-                    # Fetch device data - our updated get_device_data method handles combining data sources  # noqa: E501
+                    # Fetch standard device data (PowerMeter, HeatPump, etc.)
                     device_data = await self.hass.async_add_executor_job(
                         self.api.get_device_data, device_id, device_type
                     )
 
                     # Store the device data
                     updated_data["device_data"][str(device_id)] = device_data
+
+                    # Also collect RawData separately for all devices
+                    # This provides additional detailed sensors that users can enable
+                    try:
+                        raw_data = await self.hass.async_add_executor_job(
+                            self.api.get_raw_data, device_id
+                        )
+                        if raw_data and "Data" in raw_data and raw_data["Data"]:
+                            # Mark this as RawData source and store separately
+                            raw_data["_endpoint_used"] = "RawData"
+                            raw_data["_is_raw_data"] = True
+                            updated_data["device_data"][
+                                f"rawdata_{device_id}"
+                            ] = raw_data
+                            _LOGGER.debug(f"Collected RawData for device {device_id}")
+                    except LoggameraAPIError as e:
+                        _LOGGER.debug(
+                            f"RawData not available for device {device_id}: {e}"
+                        )
+                        # This is normal - not all devices support RawData
 
                     # Log which data sources were used
                     sources = []
