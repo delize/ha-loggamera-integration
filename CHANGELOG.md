@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.7.1] - 2025-06-17
+
+### Patch Release
+- Update max_length to 100, update sensor (#55) by @delize
+
+
 ## [0.7.0] - 2025-06-17
 
 ### Minor Release
