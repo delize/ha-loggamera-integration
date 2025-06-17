@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.7.3] - 2025-06-17
+
+### Patch Release
+- Add integration_type to manifest.json (#57) by @delize
+
+
 ## [0.7.2] - 2025-06-17
 
 ### Patch Release
