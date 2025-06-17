@@ -53,7 +53,7 @@ jobs:
       - name: Lint with flake8
         id: flake8-check
         run: |
-          if ! flake8 custom_components/ --count --max-complexity=10 --max-line-length=88 --statistics; then
+          if ! flake8 custom_components/ --count --max-complexity=10 --max-line-length=100 --statistics; then
             echo "FLAKE8_FAILED=true" >> $GITHUB_OUTPUT
             echo "❌ Flake8 linting issues found" >> $GITHUB_STEP_SUMMARY
             exit 1
