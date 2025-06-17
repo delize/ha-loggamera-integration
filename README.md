@@ -24,13 +24,26 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
 
 ## Features
 
+### Core Functionality
 - **Energy Monitoring**: Monitor power consumption in real-time with full Home Assistant Energy dashboard integration
 - **Environmental Sensors**: Track temperature and humidity readings from room sensors
 - **Water Usage**: Monitor water consumption from water meters
 - **Scenario Control**: Execute predefined scenarios through switches
 - **Alarm Monitoring**: Binary sensors for device alarm states
 - **Multi-Device Support**: Manage multiple Loggamera devices from a single integration
+
+### Advanced Sensor Management
+- **Clean Device Interface**: Each device type gets appropriate primary sensors (PowerMeter → 4 clean sensors, WaterMeter → standard water sensors, etc.)
+- **Detailed RawData Sensors**: Additional detailed sensors available via RawData endpoint (disabled by default to prevent entity spam)
+- **Smart Entity Naming**: Clear naming patterns distinguish between standard sensors (`loggamera_{device_id}_{sensor}`) and detailed sensors (`rawdata_{device_id}_{device_type}_{sensor}`)
+- **Dynamic Sensor Detection**: Automatically detects and properly configures unknown sensors using intelligent analysis of API metadata
+- **User Control**: Standard sensors enabled by default, detailed sensors can be manually enabled per user preference
+
+### Developer Experience
 - **Comprehensive Diagnostics**: Built-in diagnostic tools for troubleshooting
+- **Robust API Handling**: Intelligent endpoint selection with graceful fallbacks
+- **Future-Proof Architecture**: Handles new device types and unknown sensors automatically
+- **Extensive Logging**: Detailed logging for debugging and development
 
 ## Example Screenshot
 
@@ -84,13 +97,35 @@ The integration is configured through the Home Assistant UI:
 
 The integration creates various entity types based on your Loggamera devices:
 
-### Sensors
-- **Energy Consumption** (`sensor.loggamera_total_energy_consumption`) - Total energy consumed in kWh
-- **Current Power** (`sensor.loggamera_current_energy_consumption`) - Current power usage in kW
-- **Temperature** (for RoomSensors) - Temperature readings in °C
-- **Humidity** (for RoomSensors) - Humidity readings in %
-- **Water Usage** (for WaterMeters) - Water consumption data
-- **Device-specific metrics** - Additional sensors based on device capabilities
+### Standard Sensors (Enabled by Default)
+
+#### PowerMeter Devices
+- **Total Energy Consumption** (`sensor.loggamera_{device_id}_ConsumedTotalInkWh`) - Total energy consumed in kWh
+- **Current Power** (`sensor.loggamera_{device_id}_PowerInkW`) - Current power usage in kW
+- **Alarm Status** (`sensor.loggamera_{device_id}_alarmActive`) - Device alarm state
+- **Alarm Context** (`sensor.loggamera_{device_id}_alarmInClearText`) - Alarm description
+
+#### WaterMeter Devices
+- **Total Water Consumption** (`sensor.loggamera_{device_id}_ConsumedTotalInm3`) - Total water consumed in m³
+- **Water Since Midnight** (`sensor.loggamera_{device_id}_ConsumedSinceMidnightInLiters`) - Daily water usage
+
+#### RoomSensor Devices
+- **Temperature** (`sensor.loggamera_{device_id}_TemperatureInC`) - Temperature readings in °C
+- **Humidity** (`sensor.loggamera_{device_id}_HumidityInRH`) - Humidity readings in %
+
+#### HeatPump Devices
+- **Heat Carrier Temperatures** - Inlet/outlet temperature sensors
+- **Brine Temperatures** - Brine system temperature monitoring
+- **Pump Activity** - Heat pump operational status
+
+### Detailed RawData Sensors (Disabled by Default)
+
+Each device also provides detailed RawData sensors for advanced monitoring:
+- **PowerMeter**: ~19 additional sensors with detailed electrical metrics (`sensor.rawdata_{device_id}_powermeter_{sensor_id}`)
+- **WaterMeter**: Additional flow and pressure sensors (`sensor.rawdata_{device_id}_watermeter_{sensor_id}`)
+- **HeatPump**: Comprehensive temperature and performance sensors (`sensor.rawdata_{device_id}_heatpump_{sensor_id}`)
+
+**Note**: RawData sensors are disabled by default to prevent entity spam. Users can manually enable specific sensors they need via the Home Assistant UI.
 
 ### Binary Sensors
 - **Alarm Status** - Indicates if device alarms are active
@@ -100,6 +135,38 @@ The integration creates various entity types based on your Loggamera devices:
 - **Scenario Controls** - Execute predefined scenarios on your Loggamera devices
 
 All sensors are automatically discovered and configured based on your device capabilities. Energy sensors are compatible with the Home Assistant Energy dashboard for comprehensive energy monitoring.
+
+## Recent Major Updates
+
+### Version 2.x - Sensor Architecture Overhaul
+
+#### 🎯 **Clean Device Interface**
+- **Before**: PowerMeter devices created ~23 mixed sensors (confusing user experience)
+- **After**: PowerMeter devices create 4 clean, standard sensors with optional detailed sensors
+
+#### 🔄 **Improved Data Collection**
+- **Better Organization**: Standard device sensors and detailed diagnostic sensors are now collected separately
+- **More Reliable**: Each device type uses its most appropriate data source for consistent readings
+
+#### 🏷️ **Smart Entity Naming**
+- **Standard sensors**: `sensor.loggamera_{device_id}_{sensor_name}` (enabled by default)
+- **Detailed sensors**: `sensor.rawdata_{device_id}_{device_type}_{sensor_id}` (disabled by default)
+
+#### 🤖 **Automatic Sensor Detection**
+- **Smart Recognition**: Automatically detects and configures new sensor types
+- **Future-Proof**: Works with new Loggamera devices without software updates
+- **Comprehensive Coverage**: Supports all common sensor types (temperature, energy, power, water, etc.)
+
+#### 📊 **User Experience Improvements**
+- **Entity Spam Prevention**: RawData sensors disabled by default
+- **User Control**: Manual enablement of detailed sensors per user preference
+- **Better Organization**: Clear separation between standard and detailed monitoring
+- **Backward Compatible**: Existing sensor names preserved for known sensors
+
+#### 🔧 **Reliability Improvements**
+- **Robust Connection**: Better API handling with automatic fallbacks
+- **Enhanced Debugging**: Detailed logging for troubleshooting
+- **Error Handling**: Improved validation and graceful error recovery
 
 
 ## Troubleshooting
