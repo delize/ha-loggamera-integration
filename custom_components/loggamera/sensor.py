@@ -457,7 +457,8 @@ async def async_setup_entry(  # noqa: C901
             and "Values" in raw_data["Data"]
         ):
             _LOGGER.debug(
-                f"Processing {len(raw_data['Data']['Values'])} RawData values for {device_name}"
+                f"Processing {len(raw_data['Data']['Values'])} RawData values "
+                f"for {device_name}"
             )
 
             for value in raw_data["Data"]["Values"]:
@@ -600,7 +601,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             f"Initialized sensor: {self.name} with value: {value_data.get('Value')}"
         )
 
-    def _parse_value(self, value):
+    def _parse_value(self, value):  # noqa: C901
         """Parse value to the correct type with proper sanitization."""
         if value is None:
             return None
@@ -659,7 +660,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # For any other type, convert to string and sanitize
         return str(value)[:255]
 
-    def _detect_sensor_attributes_dynamically(self):
+    def _detect_sensor_attributes_dynamically(self):  # noqa: C901
         """Dynamically detect sensor attributes for unknown sensors.
 
         Analyzes UnitType, UnitPresentation, ClearTextName, and sensor name
@@ -696,7 +697,8 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                 }
             )
             _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → TEMPERATURE (UnitType: {unit_type})"
+                f"Dynamic detection: {sensor_name} → TEMPERATURE "
+                f"(UnitType: {unit_type})"
             )
 
         # Energy detection

@@ -79,9 +79,9 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
-    def _make_request(
+    def _make_request(  # noqa: C901
         self, endpoint: str, data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:  # noqa: C901
+    ) -> Dict[str, Any]:
         """Make a request to the Loggamera API.
 
         Args:
@@ -213,7 +213,7 @@ class LoggameraAPI:
             and response["Data"]["Values"]
         )
 
-    def _get_primary_endpoint_for_device(
+    def _get_primary_endpoint_for_device(  # noqa: C901
         self, device_id: int, device_type: str
     ) -> Dict[str, Any]:
         """Get data from the primary endpoint for a specific device type.
@@ -264,7 +264,7 @@ class LoggameraAPI:
                     ):
                         # Check if we got valid data
                         if self._has_valid_data(response):
-                            # Add the endpoint info to the response for debugging/tracking
+                            # Add endpoint info for debugging/tracking
                             response["_endpoint_used"] = primary_endpoint
                             return response
 
@@ -297,7 +297,7 @@ class LoggameraAPI:
 
                 # Check if we got valid data
                 if self._has_valid_data(response):
-                    # Add the endpoint info to the response for debugging/tracking
+                    # Add endpoint info for debugging/tracking
                     response["_endpoint_used"] = endpoint
                     return response
 
@@ -393,7 +393,8 @@ class LoggameraAPI:
             # Don't raise error if endpoint is not available
             if "invalid endpoint" in str(e):
                 _LOGGER.warning(
-                    f"Scenarios endpoint not available for organization {self.organization_id}"
+                    f"Scenarios endpoint not available for organization "
+                    f"{self.organization_id}"
                 )
                 return {"Data": {"Scenarios": []}, "Error": None}
             else:
