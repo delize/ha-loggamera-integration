@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.7.0] - 2025-06-17
+
+### Minor Release
+- Refactor, API Validation, Update Readme (#54) by @delize
+
+
 ## [0.5.0] - 2025-06-17
 
 ### Minor Release
