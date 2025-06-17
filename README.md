@@ -6,8 +6,8 @@
 [![Release Date](https://img.shields.io/github/release-date/delize/home-assistant-loggamera-integration?label=Latest%20Release&color=green)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest) [![Latest Stable](https://img.shields.io/github/v/release/delize/home-assistant-loggamera-integration?label=Stable&color=blue)](https://github.com/delize/home-assistant-loggamera-integration/releases/latest) [![Pre-Release Date](https://img.shields.io/github/release-date-pre/delize/home-assistant-loggamera-integration?label=Latest%20Pre-Release&color=orange)](https://github.com/delize/home-assistant-loggamera-integration/releases) [![Latest Pre-Release](https://img.shields.io/github/v/release/delize/home-assistant-loggamera-integration?include_prereleases&label=Pre-Release&color=orange)](https://github.com/delize/home-assistant-loggamera-integration/releases)
 
 
-[![Validate with hassfest](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs-hassfest.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
-[![HACS Action](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs-validation.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
+[![Validate with hassfest](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
+[![HACS Action](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
 [![Code Quality](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml)
 [![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
 
@@ -47,7 +47,9 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
 
 ## Example Screenshot
 
-![Example Screenshot of Sensor Data](docs/assets/README/demo-screenshot.png)
+![Example Screenshot of Integration Functionality](docs/assets/README/demo-screenshot-1.png)
+![Example Screenshot of Organization Functionality](docs/assets/README/demo-screenshot-2.png)
+![Example Screenshot of PowerMeter Functionality (All Entities Enabled)](docs/assets/README/demo-screenshot-3.png)
 
 ## Installation
 
@@ -97,35 +99,13 @@ The integration is configured through the Home Assistant UI:
 
 The integration creates various entity types based on your Loggamera devices:
 
-### Standard Sensors (Enabled by Default)
-
-#### PowerMeter Devices
-- **Total Energy Consumption** (`sensor.loggamera_{device_id}_ConsumedTotalInkWh`) - Total energy consumed in kWh
-- **Current Power** (`sensor.loggamera_{device_id}_PowerInkW`) - Current power usage in kW
-- **Alarm Status** (`sensor.loggamera_{device_id}_alarmActive`) - Device alarm state
-- **Alarm Context** (`sensor.loggamera_{device_id}_alarmInClearText`) - Alarm description
-
-#### WaterMeter Devices
-- **Total Water Consumption** (`sensor.loggamera_{device_id}_ConsumedTotalInm3`) - Total water consumed in m³
-- **Water Since Midnight** (`sensor.loggamera_{device_id}_ConsumedSinceMidnightInLiters`) - Daily water usage
-
-#### RoomSensor Devices
-- **Temperature** (`sensor.loggamera_{device_id}_TemperatureInC`) - Temperature readings in °C
-- **Humidity** (`sensor.loggamera_{device_id}_HumidityInRH`) - Humidity readings in %
-
-#### HeatPump Devices
-- **Heat Carrier Temperatures** - Inlet/outlet temperature sensors
-- **Brine Temperatures** - Brine system temperature monitoring
-- **Pump Activity** - Heat pump operational status
-
-### Detailed RawData Sensors (Disabled by Default)
-
-Each device also provides detailed RawData sensors for advanced monitoring:
-- **PowerMeter**: ~19 additional sensors with detailed electrical metrics (`sensor.rawdata_{device_id}_powermeter_{sensor_id}`)
-- **WaterMeter**: Additional flow and pressure sensors (`sensor.rawdata_{device_id}_watermeter_{sensor_id}`)
-- **HeatPump**: Comprehensive temperature and performance sensors (`sensor.rawdata_{device_id}_heatpump_{sensor_id}`)
-
-**Note**: RawData sensors are disabled by default to prevent entity spam. Users can manually enable specific sensors they need via the Home Assistant UI.
+### Sensors
+- **Energy Consumption** (`sensor.loggamera_total_energy_consumption`) - Total energy consumed in kWh
+- **Current Power** (`sensor.loggamera_current_energy_consumption`) - Current power usage in kW
+- **Temperature** (for RoomSensors) - Temperature readings in °C
+- **Humidity** (for RoomSensors) - Humidity readings in %
+- **Water Usage** (for WaterMeters) - Water consumption data
+- **Device-specific metrics** - Additional sensors based on device capabilities
 
 ### Binary Sensors
 - **Alarm Status** - Indicates if device alarms are active
@@ -135,38 +115,6 @@ Each device also provides detailed RawData sensors for advanced monitoring:
 - **Scenario Controls** - Execute predefined scenarios on your Loggamera devices
 
 All sensors are automatically discovered and configured based on your device capabilities. Energy sensors are compatible with the Home Assistant Energy dashboard for comprehensive energy monitoring.
-
-## Recent Major Updates
-
-### Version 2.x - Sensor Architecture Overhaul
-
-#### 🎯 **Clean Device Interface**
-- **Before**: PowerMeter devices created ~23 mixed sensors (confusing user experience)
-- **After**: PowerMeter devices create 4 clean, standard sensors with optional detailed sensors
-
-#### 🔄 **Improved Data Collection**
-- **Better Organization**: Standard device sensors and detailed diagnostic sensors are now collected separately
-- **More Reliable**: Each device type uses its most appropriate data source for consistent readings
-
-#### 🏷️ **Smart Entity Naming**
-- **Standard sensors**: `sensor.loggamera_{device_id}_{sensor_name}` (enabled by default)
-- **Detailed sensors**: `sensor.rawdata_{device_id}_{device_type}_{sensor_id}` (disabled by default)
-
-#### 🤖 **Automatic Sensor Detection**
-- **Smart Recognition**: Automatically detects and configures new sensor types
-- **Future-Proof**: Works with new Loggamera devices without software updates
-- **Comprehensive Coverage**: Supports all common sensor types (temperature, energy, power, water, etc.)
-
-#### 📊 **User Experience Improvements**
-- **Entity Spam Prevention**: RawData sensors disabled by default
-- **User Control**: Manual enablement of detailed sensors per user preference
-- **Better Organization**: Clear separation between standard and detailed monitoring
-- **Backward Compatible**: Existing sensor names preserved for known sensors
-
-#### 🔧 **Reliability Improvements**
-- **Robust Connection**: Better API handling with automatic fallbacks
-- **Enhanced Debugging**: Detailed logging for troubleshooting
-- **Error Handling**: Improved validation and graceful error recovery
 
 
 ## Troubleshooting
