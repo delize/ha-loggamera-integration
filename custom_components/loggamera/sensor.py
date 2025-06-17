@@ -559,28 +559,51 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             dynamic_info = self._detect_sensor_attributes_dynamically()
             friendly_name = dynamic_info.get("name") if dynamic_info else None
 
-        # Use friendly name if available, otherwise use API name
+        # Use friendly name if available, otherwise use ClearTextName, otherwise use sensor name
         display_name = (
             friendly_name
             if friendly_name
-            else value_data.get("ClearTextName", value_data.get("Name", "Unknown"))
+            else value_data.get("ClearTextName", self.sensor_name)
         )
+
+        # Extract device identifier (part in parentheses) for display names
+        device_identifier = ""
+        if "(" in device_name and ")" in device_name:
+            # Extract everything from first ( to last )
+            start = device_name.find("(")
+            end = device_name.rfind(")")
+            device_identifier = device_name[start : end + 1]
 
         # Set entity naming based on whether this is RawData or standard device data
         if self.is_raw_data:
-            # Use rawdata naming pattern: rawdata_{deviceid}_{devicetype}_{sensorname}
-            device_type_lower = device_type.lower()
+            # Use rawdata naming pattern: rawdata_lgh_31401_73785_energy_phase_3
+            # Extract apartment/unit name (part before first parenthesis)
+            unit_name = device_name.split("(")[0].strip().lower().replace(" ", "_")
+            # Clean sensor name for entity ID
+            clean_sensor_name = display_name.lower().replace(" ", "_")
             self._attr_unique_id = (
-                f"rawdata_{device_id}_{device_type_lower}_{self.sensor_name}"
+                f"rawdata_{unit_name}_{device_id}_{clean_sensor_name}"
             )
-            # Also update the display name to indicate this is raw data
-            self._attr_name = f"RawData {device_name} {display_name}"
+
+            # Display name: "Energy Phase 3 - (D5 mätare: 99954807)"
+            self._attr_name = (
+                f"{display_name} - {device_identifier}"
+                if device_identifier
+                else display_name
+            )
             # Disable RawData entities by default
             self._attr_entity_registry_enabled_default = False
         else:
-            # Use standard naming pattern for regular device sensors
-            self._attr_unique_id = f"loggamera_{device_id}_{self.sensor_name}"
-            self._attr_name = f"{device_name} {display_name}"
+            # Use standard naming pattern: loggamera_73785_total_energy_consumption
+            clean_sensor_name = display_name.lower().replace(" ", "_")
+            self._attr_unique_id = f"loggamera_{device_id}_{clean_sensor_name}"
+
+            # Display name: "Total Energy Consumption - (D5 mätare: 99954807)"
+            self._attr_name = (
+                f"{display_name} - {device_identifier}"
+                if device_identifier
+                else display_name
+            )
 
         # Ensure consistent device ID format
         try:
@@ -1022,11 +1045,23 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         """Return device info."""
+        # Determine suggested area based on device type
+        suggested_area = None
+        if self.device_type == "PowerMeter":
+            suggested_area = "Energy"
+        elif self.device_type == "WaterMeter":
+            suggested_area = "Utility"
+        elif self.device_type == "RoomSensor":
+            suggested_area = "Climate"
+        elif self.device_type in ["HeatPump", "CoolingUnit"]:
+            suggested_area = "HVAC"
+
         return DeviceInfo(
             identifiers={(DOMAIN, str(self.device_id))},
-            name=self.device_name,
+            name=f"{self.device_type} - {self.device_name}",
             manufacturer="Loggamera",
-            model=self.device_type,
+            model=f"Loggamera {self.device_type}",
+            suggested_area=suggested_area,
         )
 
     @property
