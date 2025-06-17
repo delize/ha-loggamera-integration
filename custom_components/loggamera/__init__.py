@@ -39,6 +39,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
     try:
+        # Log integration version for troubleshooting
+        import json
+
+        manifest_path = hass.config.path(
+            "custom_components", "loggamera", "manifest.json"
+        )
+        try:
+            with open(manifest_path, "r") as f:
+                manifest = json.load(f)
+                version = manifest.get("version", "unknown")
+                _LOGGER.info(f"🔧 Loggamera Integration v{version} starting up")
+        except Exception:
+            _LOGGER.info("🔧 Loggamera Integration starting up (version unknown)")
         # Get config entry data
         api_key = entry.data[CONF_API_KEY]
         organization_id = entry.data.get(CONF_ORGANIZATION_ID)

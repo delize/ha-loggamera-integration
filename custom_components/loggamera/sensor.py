@@ -1155,37 +1155,56 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             suggested_area=suggested_area,
         )
 
-    @property
-    def available(self):
-        """Return if entity is available."""
-        # Check if coordinator has data
-        if not self.coordinator.data or "device_data" not in self.coordinator.data:
-            return False
+    def _is_organization_sensor_available(self):
+        """Check if organization sensor is available."""
+        if self.sensor_name == "device_count":
+            return "devices" in self.coordinator.data
+        return True
 
-        # Determine which data source to use based on sensor type
+    def _get_device_data_key(self):
+        """Get the data key for device data lookup."""
         if self.is_raw_data:
-            # For RawData sensors, look in the rawdata_{device_id} key
-            data_key = f"rawdata_{self.device_id}"
-        else:
-            # For standard sensors, use device_id directly
-            data_key = self.device_id
+            return f"rawdata_{self.device_id}"
+        return self.device_id
 
-        # Check if our device data exists
+    def _find_device_data(self, data_key):
+        """Find device data using the given key."""
         device_data = self.coordinator.data["device_data"].get(data_key)
         if not device_data:
             # Try string version of data_key as fallback
             device_data = self.coordinator.data["device_data"].get(str(data_key))
-            if not device_data:
-                return False
+        return device_data
 
-        # Check if we have values
+    def _has_sensor_value(self, device_data):
+        """Check if the specific sensor value exists in device data."""
         if "Data" not in device_data or "Values" not in device_data["Data"]:
             return False
 
-        # Check if our specific value exists
-        sensor_name = self.sensor_name
         for value in device_data["Data"]["Values"]:
-            if value.get("Name") == sensor_name:
+            if value.get("Name") == self.sensor_name:
                 return True
-
         return False
+
+    @property
+    def available(self):
+        """Return if entity is available."""
+        # Check if coordinator has data
+        if not self.coordinator.data:
+            return False
+
+        # Handle organization sensors separately
+        if self.is_organization:
+            return self._is_organization_sensor_available()
+
+        # For regular sensors, check device_data
+        if "device_data" not in self.coordinator.data:
+            return False
+
+        # Get device data and check if sensor value exists
+        data_key = self._get_device_data_key()
+        device_data = self._find_device_data(data_key)
+
+        if not device_data:
+            return False
+
+        return self._has_sensor_value(device_data)
