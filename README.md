@@ -9,7 +9,7 @@
 [![Validate with hassfest](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs-hassfest.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hassfest.yaml)
 [![HACS Action](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs-validation.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/hacs.yaml)
 [![Code Quality](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml/badge.svg?branch=main)](https://github.com/delize/home-assistant-loggamera-integration/actions/workflows/lint.yaml)
-[![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
+[![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main?cache=300)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
 
 
 This integration allows you to monitor your Loggamera devices in Home Assistant, providing comprehensive energy monitoring and device control capabilities.
