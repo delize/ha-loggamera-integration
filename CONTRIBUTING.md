@@ -15,7 +15,7 @@ Thank you for your interest in contributing to the Loggamera integration!
    pip install -r requirements-dev.txt
    ```
 
-3. **Set up pre-commit hooks** (optional but recommended):
+3. **Set up pre-commit hooks** (recommended):
    ```bash
    pip install pre-commit
    pre-commit install
@@ -23,19 +23,30 @@ Thank you for your interest in contributing to the Loggamera integration!
 
 ## Code Quality
 
-We use several tools to maintain code quality:
+We use automated pre-commit hooks that run on every commit:
 
-- **Black** for code formatting
-- **isort** for import sorting
-- **flake8** for linting
-- **mypy** for type checking
+- **Black** for code formatting (100 character line length)
+- **isort** for import sorting (compatible with Black)
+- **flake8** for linting (excludes tests/ and tools/ directories)
+- **yamllint** for YAML file validation
+- **General checks** for trailing whitespace, file endings, and merge conflicts
 
-Run these before submitting:
+The hooks will automatically run when you commit. To run manually:
+```bash
+pre-commit run --all-files
+```
+
+### Configuration Files
+- **setup.cfg**: Configures flake8 with proper exclusions (tests/, tools/) and line length (100 chars)
+- **.pre-commit-config.yaml**: Defines all pre-commit hooks and their settings
+- **pyproject.toml**: Contains black, isort, and mypy configuration
+
+### Manual Code Quality Checks
+If you need to run tools manually:
 ```bash
 black custom_components/
 isort custom_components/
-flake8 custom_components/
-mypy custom_components/
+flake8 custom_components/  # Uses setup.cfg for configuration
 ```
 
 ## Testing
@@ -58,10 +69,15 @@ python tools/loggamera_api_explorer.py YOUR_API_KEY PowerMeter --device-id YOUR_
 2. **Create a feature branch**: `git checkout -b feature/your-feature-name`
 3. **Make your changes**
 4. **Test thoroughly**
-5. **Run code quality checks**
+5. **Pre-commit hooks will run automatically** (or run manually with `pre-commit run --all-files`)
 6. **Commit with descriptive messages**
 7. **Push to your fork**
 8. **Create a Pull Request**
+
+### Automated Workflows
+- **Version Bumping**: Add labels (`major`, `minor`, `patch`, `bug`, `feature`, `documentation`) to PRs to trigger automatic version bumps
+- **Auto-merge**: Version bump PRs are automatically merged after passing CI checks
+- **Release Creation**: Use the Smart Release workflow to create GitHub releases with automatic changelog generation
 
 ## Guidelines
 
