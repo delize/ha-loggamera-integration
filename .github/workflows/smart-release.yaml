@@ -306,10 +306,16 @@ jobs:
           sleep 2
 
           # Get the release info
-          RELEASE_INFO=$(gh release view "v$VERSION" --json isLatest,isDraft,isPrerelease,tagName)
+          RELEASE_INFO=$(gh release view "v$VERSION" --json isDraft,isPrerelease,tagName)
           echo "📋 Release info: $RELEASE_INFO"
 
-          IS_LATEST=$(echo "$RELEASE_INFO" | jq -r '.isLatest')
+          # Check if this is the latest release by comparing with the latest stable release
+          LATEST_RELEASE=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          IS_LATEST="false"
+          if [ "v$VERSION" = "$LATEST_RELEASE" ]; then
+            IS_LATEST="true"
+          fi
+
           IS_DRAFT=$(echo "$RELEASE_INFO" | jq -r '.isDraft')
           IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
 
@@ -329,8 +335,11 @@ jobs:
 
               # Wait and verify the fix
               sleep 2
-              UPDATED_INFO=$(gh release view "v$VERSION" --json isLatest)
-              UPDATED_LATEST=$(echo "$UPDATED_INFO" | jq -r '.isLatest')
+              UPDATED_LATEST_RELEASE=$(gh release list --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+              UPDATED_LATEST="false"
+              if [ "v$VERSION" = "$UPDATED_LATEST_RELEASE" ]; then
+                UPDATED_LATEST="true"
+              fi
 
               if [ "$UPDATED_LATEST" = "true" ]; then
                 echo "✅ Successfully marked release v$VERSION as latest"

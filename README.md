@@ -55,6 +55,22 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
 2. Extract the contents and copy the `custom_components/loggamera` directory to your Home Assistant `custom_components` directory
 3. Restart Home Assistant
 
+## Development
+
+This project uses automated workflows and code quality tools:
+
+### Automated Version Management
+- **Automatic Version Bumping**: PRs with appropriate labels (`major`, `minor`, `patch`) automatically trigger version bumps
+- **Smart Release Workflow**: Creates GitHub releases with automatic changelog generation
+- **Auto-merge**: Version bump PRs are automatically merged after passing all checks
+
+### Code Quality
+- **Pre-commit Hooks**: Automated code formatting and linting on every commit
+- **Continuous Integration**: All PRs are validated with hassfest, HACS, and custom linting
+- **YAML Linting**: All workflow files are validated for proper syntax
+
+For development setup, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Configuration
 
 The integration is configured through the Home Assistant UI:
