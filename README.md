@@ -144,19 +144,18 @@ All sensors are automatically discovered and configured based on your device cap
 - **Before**: PowerMeter devices created ~23 mixed sensors (confusing user experience)
 - **After**: PowerMeter devices create 4 clean, standard sensors with optional detailed sensors
 
-#### 🔄 **Separated RawData Collection**
-- **Before**: PowerMeter + RawData merged into single endpoint (data inconsistency)
-- **After**: Primary endpoints (PowerMeter, WaterMeter, etc.) + separate RawData collection for each device
+#### 🔄 **Improved Data Collection**
+- **Better Organization**: Standard device sensors and detailed diagnostic sensors are now collected separately
+- **More Reliable**: Each device type uses its most appropriate data source for consistent readings
 
 #### 🏷️ **Smart Entity Naming**
 - **Standard sensors**: `sensor.loggamera_{device_id}_{sensor_name}` (enabled by default)
 - **Detailed sensors**: `sensor.rawdata_{device_id}_{device_type}_{sensor_id}` (disabled by default)
 
-#### 🤖 **Dynamic Sensor Detection**
-- **Intelligent Analysis**: Automatically detects unknown sensors using UnitType, UnitPresentation, and ClearTextName
-- **Future-Proof**: Handles new device types without code updates
-- **Comprehensive Support**: Temperature, Energy, Power, Current, Voltage, Water, Humidity, Boolean sensors
-- **Graceful Fallbacks**: Generic sensor creation for completely unknown types
+#### 🤖 **Automatic Sensor Detection**
+- **Smart Recognition**: Automatically detects and configures new sensor types
+- **Future-Proof**: Works with new Loggamera devices without software updates
+- **Comprehensive Coverage**: Supports all common sensor types (temperature, energy, power, water, etc.)
 
 #### 📊 **User Experience Improvements**
 - **Entity Spam Prevention**: RawData sensors disabled by default
@@ -164,13 +163,10 @@ All sensors are automatically discovered and configured based on your device cap
 - **Better Organization**: Clear separation between standard and detailed monitoring
 - **Backward Compatible**: Existing sensor names preserved for known sensors
 
-#### 🔧 **Developer Experience**
-- **Robust API Logic**: Primary endpoint selection with intelligent fallbacks
-- **Enhanced Logging**: Comprehensive debug information for sensor detection
-- **Code Quality**: Extensive refactoring for maintainability and future development
-- **Test Coverage**: Improved validation and error handling
-
-**Note**: These changes require testing in Home Assistant environments before final release.
+#### 🔧 **Reliability Improvements**
+- **Robust Connection**: Better API handling with automatic fallbacks
+- **Enhanced Debugging**: Detailed logging for troubleshooting
+- **Error Handling**: Improved validation and graceful error recovery
 
 
 ## Troubleshooting
