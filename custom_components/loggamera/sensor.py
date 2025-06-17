@@ -553,6 +553,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         sensor_info = SENSOR_MAP.get(self.sensor_name, {})
         friendly_name = sensor_info.get("name")
 
+        # If not found in hardcoded map, try dynamic detection for name
+        if not friendly_name:
+            dynamic_info = self._detect_sensor_attributes_dynamically()
+            friendly_name = dynamic_info.get("name") if dynamic_info else None
+
         # Use friendly name if available, otherwise use API name
         display_name = (
             friendly_name
@@ -654,6 +659,253 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # For any other type, convert to string and sanitize
         return str(value)[:255]
 
+    def _detect_sensor_attributes_dynamically(self):
+        """Dynamically detect sensor attributes for unknown sensors.
+
+        Analyzes UnitType, UnitPresentation, ClearTextName, and sensor name
+        to intelligently determine device_class, unit, and state_class.
+
+        Returns:
+            Dict with detected sensor attributes
+        """
+        detected = {}
+
+        unit_type = self.value_data.get("UnitType", "").lower()
+        unit_presentation = self.value_data.get("UnitPresentation", "").lower()
+        clear_text_name = self.value_data.get("ClearTextName", "").lower()
+        sensor_name = self.sensor_name.lower()
+
+        # Temperature detection
+        if (
+            unit_type in ["degreescelsius", "celsius"]
+            or "°c" in unit_presentation
+            or "celsius" in unit_presentation
+            or any(temp_word in clear_text_name for temp_word in ["temp", "temperatur"])
+            or any(temp_word in sensor_name for temp_word in ["temp", "temperatur"])
+        ):
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.TEMPERATURE,
+                    "unit": UnitOfTemperature.CELSIUS,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → TEMPERATURE (UnitType: {unit_type})"
+            )
+
+        # Energy detection
+        elif (
+            unit_type in ["kwh", "kilowatthour"]
+            or "kwh" in unit_presentation
+            or any(
+                energy_word in clear_text_name
+                for energy_word in ["energy", "energi", "förbrukning"]
+            )
+            or any(
+                energy_word in sensor_name
+                for energy_word in ["energy", "consumed", "total"]
+            )
+        ):
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.ENERGY,
+                    "unit": UnitOfEnergy.KILO_WATT_HOUR,
+                    "state_class": SensorStateClass.TOTAL_INCREASING,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → ENERGY (UnitType: {unit_type})"
+            )
+
+        # Power detection
+        elif (
+            unit_type in ["kw", "kilowatt", "w", "watt"]
+            or "kw" in unit_presentation
+            or "w" in unit_presentation
+            or any(
+                power_word in clear_text_name
+                for power_word in ["power", "effekt", "watt"]
+            )
+            or any(power_word in sensor_name for power_word in ["power", "watt"])
+        ):
+            # Determine if kilowatt or watt based on presentation
+            if "kw" in unit_presentation.lower() or "kilowatt" in unit_type:
+                unit = UnitOfPower.KILO_WATT
+            else:
+                unit = UnitOfPower.WATT
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.POWER,
+                    "unit": unit,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → POWER (UnitType: {unit_type})"
+            )
+
+        # Current detection
+        elif (
+            unit_type in ["ampere", "amp", "a"]
+            or "a" in unit_presentation
+            or "amp" in unit_presentation
+        ):
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.CURRENT,
+                    "unit": UnitOfElectricCurrent.AMPERE,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → CURRENT (UnitType: {unit_type})"
+            )
+
+        # Voltage detection
+        elif (
+            unit_type in ["volt", "v"]
+            or "v" in unit_presentation
+            or "volt" in unit_presentation
+        ):
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.VOLTAGE,
+                    "unit": UnitOfElectricPotential.VOLT,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → VOLTAGE (UnitType: {unit_type})"
+            )
+
+        # Water/Volume detection
+        elif (
+            unit_type in ["m3", "cubicmeter", "liter", "litre"]
+            or "m³" in unit_presentation
+            or "m3" in unit_presentation
+            or "l" in unit_presentation
+            or any(
+                water_word in clear_text_name
+                for water_word in ["water", "vatten", "volume"]
+            )
+            or any(water_word in sensor_name for water_word in ["water", "consumed"])
+        ):
+            if (
+                "m3" in unit_presentation
+                or "m³" in unit_presentation
+                or "cubicmeter" in unit_type
+            ):
+                unit = UnitOfVolume.CUBIC_METERS
+            else:
+                unit = UnitOfVolume.LITERS
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.WATER,
+                    "unit": unit,
+                    "state_class": SensorStateClass.TOTAL_INCREASING,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → WATER (UnitType: {unit_type})"
+            )
+
+        # Humidity detection
+        elif (
+            unit_type in ["percent", "percentage", "rh"]
+            or "%" in unit_presentation
+            or "rh" in unit_presentation
+            or any(
+                humidity_word in clear_text_name
+                for humidity_word in ["humidity", "fuktighet"]
+            )
+            or any(humidity_word in sensor_name for humidity_word in ["humidity", "rh"])
+        ):
+            detected.update(
+                {
+                    "device_class": SensorDeviceClass.HUMIDITY,
+                    "unit": PERCENTAGE,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → HUMIDITY (UnitType: {unit_type})"
+            )
+
+        # Boolean detection
+        elif (
+            unit_type in ["boolean", "booleanonoff", "booleanyesno"]
+            or any(
+                bool_word in clear_text_name
+                for bool_word in ["active", "on", "off", "alarm"]
+            )
+            or any(
+                bool_word in sensor_name for bool_word in ["active", "alarm", "status"]
+            )
+        ):
+            detected.update(
+                {
+                    "device_class": None,
+                    "unit": None,
+                    "state_class": None,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.debug(
+                f"Dynamic detection: {sensor_name} → BOOLEAN (UnitType: {unit_type})"
+            )
+
+        # Generic numeric fallback
+        elif not self._is_boolean and not self._is_string:
+            # Use the raw unit presentation if available
+            unit = self._sensor_unit if self._sensor_unit else None
+            detected.update(
+                {
+                    "device_class": None,
+                    "unit": unit,
+                    "state_class": SensorStateClass.MEASUREMENT,
+                    "name": clear_text_name.title()
+                    if clear_text_name
+                    else sensor_name.title(),
+                }
+            )
+            _LOGGER.info(
+                f"Dynamic detection: {sensor_name} → GENERIC NUMERIC "
+                f"(UnitType: {unit_type}, Unit: {unit})"
+            )
+
+        # Log when we couldn't detect anything useful
+        if not detected:
+            _LOGGER.warning(
+                f"Dynamic detection failed for sensor {sensor_name} "
+                f"(UnitType: {unit_type}, UnitPresentation: {unit_presentation})"
+            )
+
+        return detected
+
     def _set_sensor_attributes(self):
         """Set device class, state class, and unit of measurement based on sensor type."""  # noqa: E501
         # Set icon for boolean alarm sensors
@@ -676,6 +928,14 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
         # For numeric values, try to determine device class and units
         sensor_info = SENSOR_MAP.get(self.sensor_name, {})
+
+        # If not found in hardcoded map, try dynamic detection
+        if not sensor_info:
+            sensor_info = self._detect_sensor_attributes_dynamically()
+            if sensor_info:
+                _LOGGER.info(
+                    f"Used dynamic detection for unknown sensor: {self.sensor_name}"
+                )
 
         # Set device class if available in mapping
         self._attr_device_class = sensor_info.get("device_class")
