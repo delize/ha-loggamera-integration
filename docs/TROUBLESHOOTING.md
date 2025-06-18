@@ -147,16 +147,306 @@ Docker environments can have specific issues related to networking, certificates
 docker exec -it homeassistant bash -c "apt-get update && apt-get install -y ca-certificates curl"
 ```
 
-## Still Having Issues?
+## Diagnostic Tools and Support Scripts
 
-If you're still experiencing problems after trying these solutions:
+The integration includes **25+ comprehensive diagnostic tools** to help troubleshoot issues and provide support information. **Before opening a GitHub issue, please run the appropriate tools to gather diagnostic information.**
 
-1. Check the [GitHub Issues](https://github.com/delize/ha-loggamera-integration/issues) to see if others have reported the same problem.
+### Core Diagnostic Tools
 
-2. Run the diagnostic script and attach the output when reporting issues.
+#### 1. **Main Diagnostic Tool** (Primary)
+```bash
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose
+```
+**What it does:**
+- Tests API connectivity and SSL/TLS certificates
+- Validates API key and organization access
+- Discovers all devices and capabilities across all endpoints
+- Tests all available API endpoints systematically
+- Provides detailed error analysis and recommendations
+- Generates comprehensive diagnostic summary
 
-3. Enable debug logging for the integration by adding this to your configuration.yaml:
+**When to use:** **Always run this first** for any connectivity, device discovery, or general issues.
 
+#### 2. **Organization Mapper** (Complete Infrastructure Mapping)
+```bash
+python tools/organization_mapper.py YOUR_API_KEY --format json --verbose
+python tools/organization_mapper.py YOUR_API_KEY --format markdown --output mapping.md
+```
+**What it does:**
+- Maps ALL devices across ALL accessible organizations
+- Discovers ALL sensors for each device type
+- Tests endpoint coverage for each device
+- Generates detailed reports in JSON, CSV, or Markdown format
+- Provides comprehensive sensor statistics and mapping coverage
+- Shows organization hierarchy and device relationships
+
+**When to use:** When you need complete visibility into your Loggamera infrastructure, missing devices/sensors, or want to verify sensor mappings.
+
+#### 3. **Connection Testing Tool** (Basic Connectivity)
+```bash
+python tools/test_connection.py YOUR_API_KEY [ORGANIZATION_ID]
+```
+**What it does:**
+- Tests basic API connectivity with detailed SSL/TLS diagnostics
+- Validates API key authentication
+- Checks organization and device access permissions
+- Provides system information for debugging (Python, OpenSSL, certificates)
+- Tests DNS resolution and network connectivity
+
+**When to use:** For basic connectivity troubleshooting, SSL certificate issues, or authentication problems.
+
+### API Testing and Exploration Tools
+
+#### 4. **API Explorer Tool** (Endpoint Testing)
+```bash
+python tools/loggamera_api_explorer.py YOUR_API_KEY ENDPOINT --device-id DEVICE_ID --verbose
+```
+**Examples:**
+```bash
+# Test Organizations endpoint
+python tools/loggamera_api_explorer.py YOUR_API_KEY Organizations
+
+# Test specific device endpoints
+python tools/loggamera_api_explorer.py YOUR_API_KEY PowerMeter --device-id 12345
+python tools/loggamera_api_explorer.py YOUR_API_KEY RawData --device-id 67890
+```
+**When to use:** When you need to test specific API endpoints, debug specific device issues, or explore API responses.
+
+#### 5. **API Test Tool** (Basic API Validation)
+```bash
+python tools/api_test.py YOUR_API_KEY
+```
+**What it does:**
+- Performs basic API functionality tests
+- Validates core endpoint responses
+- Quick API health check
+
+**When to use:** Quick API validation or basic functionality testing.
+
+### Sensor Mapping and Coverage Tools
+
+#### 6. **Sensor Mapping Validation** (Comprehensive Coverage Analysis)
+```bash
+python tools/validate_sensor_mappings.py
+```
+**What it does:**
+- Tests ALL sensor mappings across ALL organizations and devices
+- Identifies unmapped sensors with detailed analysis
+- Suggests mappings for new/unknown sensors with device class recommendations
+- Validates endpoint coverage by device type
+- Provides mapping coverage statistics and recommendations
+
+**When to use:** When sensors are missing, showing as "Unknown", or you need to validate sensor coverage.
+
+#### 7. **Coverage Testing Tools**
+```bash
+python tools/check_actual_coverage.py          # Real coverage using integration mappings
+python tools/test_coverage_improvement.py      # Coverage improvement analysis
+python tools/final_coverage_test.py           # Final coverage validation
+```
+**What they do:**
+- Test actual sensor mapping coverage using real integration data
+- Analyze coverage improvements and missing mappings
+- Validate final sensor coverage completeness
+
+**When to use:** When validating sensor mapping completeness or testing integration coverage.
+
+### Device-Specific Testing Tools
+
+#### 8. **PowerMeter Analysis Tools**
+```bash
+python tools/analyze_power_meter.py YOUR_API_KEY DEVICE_ID
+python tools/basic_powermeter_output.py YOUR_API_KEY DEVICE_ID
+python tools/test_powermeter.py YOUR_API_KEY
+```
+**What they do:**
+- Analyze PowerMeter devices in detail
+- Extract all available PowerMeter data points
+- Test PowerMeter-specific functionality
+
+**When to use:** For PowerMeter-specific issues, energy monitoring problems, or detailed power analysis.
+
+#### 9. **PowerMeter Update Monitoring**
+```bash
+python tools/monitor_powermeter_updates.py --api-key YOUR_API_KEY --device-id DEVICE_ID --interval 60 --duration 24
+python tools/analyze_update_frequency.py powermeter_logs/logfile.log
+```
+**What they do:**
+- Monitor PowerMeter data updates over time (hours/days)
+- Analyze update patterns and frequencies
+- Generate update frequency statistics and recommendations
+- Help determine optimal polling intervals
+
+**When to use:** When experiencing data update issues, need to optimize polling intervals, or analyzing PowerMeter update patterns.
+
+#### 10. **HeatMeter Testing Tools**
+```bash
+python tools/test_heatmeter_api.py
+python tools/test_heatmeter_support.py
+```
+**What they do:**
+- Test HeatMeter API functionality without Home Assistant
+- Validate HeatMeter support and organization hierarchy
+- Test HeatMeter sensor detection and mapping
+
+**When to use:** For HeatMeter-specific issues, heating system monitoring problems, or RawData endpoint testing.
+
+### Integration-Specific Testing Tools
+
+#### 11. **Device Counter Testing** (Organization Sensors)
+```bash
+python tools/test_device_counter.py
+python tools/test_device_counter_simple.py
+```
+**What they do:**
+- Test device counter sensor functionality comprehensively
+- Validate organization sensor availability and values
+- Test edge cases and error handling for organization sensors
+- Simulate Home Assistant integration scenarios
+
+**When to use:** When organization sensors show as "Unavailable", have incorrect values, or display issues in Home Assistant.
+
+#### 12. **Integration Log Testing**
+```bash
+python tools/test_integration_logs.py
+python tools/validate_fix.py
+```
+**What they do:**
+- Simulate Home Assistant integration scenarios
+- Validate fixes for specific integration issues
+- Test sensor availability and value correctness
+
+**When to use:** When debugging Home Assistant integration issues or validating bug fixes.
+
+#### 13. **User and Organization Testing**
+```bash
+python tools/test_user_count.py
+```
+**What it does:**
+- Tests user count functionality in Organizations API
+- Validates organization hierarchy and user data
+- Tests organization sensor data accuracy
+
+**When to use:** For organization management issues or user count sensor problems.
+
+### Home Assistant Configuration Tools
+
+#### 14. **HA Sensor Configuration Helper**
+```bash
+python tools/ha_sensor_config_helper.py YOUR_API_KEY DEVICE_ID
+```
+**What it does:**
+- Generates YAML configuration snippets for Home Assistant dashboards
+- Creates energy dashboard configuration
+- Provides sensor entity configuration examples
+- Helps with manual Home Assistant sensor setup
+
+**When to use:** When setting up custom dashboards, energy monitoring, or need Home Assistant configuration examples.
+
+### Network and SSL Tools
+
+#### 15. **TLS/SSL Diagnostic Script**
+```bash
+bash tools/diagnose_tls.sh
+```
+**What it does:**
+- Comprehensive SSL/TLS certificate diagnostics
+- Tests certificate chains and validation
+- Provides certificate fix recommendations
+- Downloads and installs missing certificates
+
+**When to use:** For SSL certificate issues, CERTIFICATE_VERIFY_FAILED errors, or Docker certificate problems.
+
+#### 16. **Insecure API Client** (Testing Only)
+```bash
+python tools/api_client_insecure.py YOUR_API_KEY
+```
+**What it does:**
+- Tests API connectivity without SSL verification (for debugging only)
+- Helps isolate SSL-related issues from API problems
+- **Use only for debugging SSL issues**
+
+**When to use:** Only when SSL issues prevent normal API testing and you need to isolate the problem.
+
+### Development and Maintenance Tools
+
+#### 17. **Version Manager**
+```bash
+python tools/version_manager.py
+```
+**What it does:**
+- Manages integration version information
+- Validates version consistency across files
+
+**When to use:** For development version management.
+
+## Tool Usage for Support Requests
+
+### For Connection Issues:
+```bash
+python tools/test_connection.py YOUR_API_KEY
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose
+bash tools/diagnose_tls.sh
+```
+
+### For Missing Devices/Sensors:
+```bash
+python tools/organization_mapper.py YOUR_API_KEY --format json
+python tools/validate_sensor_mappings.py
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose
+```
+
+### For Data Update Issues:
+```bash
+python tools/monitor_powermeter_updates.py --api-key YOUR_API_KEY --device-id DEVICE_ID --duration 2
+python tools/analyze_power_meter.py YOUR_API_KEY DEVICE_ID
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose
+```
+
+### For "Unavailable" Sensors:
+```bash
+python tools/test_device_counter.py
+python tools/test_integration_logs.py
+python tools/validate_fix.py
+```
+
+### For Specific Device Issues:
+- **PowerMeter**: `analyze_power_meter.py`, `monitor_powermeter_updates.py`
+- **HeatMeter**: `test_heatmeter_api.py`, `test_heatmeter_support.py`
+- **Organization**: `test_user_count.py`, `test_device_counter.py`
+
+### For Sensor Mapping Issues:
+```bash
+python tools/validate_sensor_mappings.py
+python tools/check_actual_coverage.py
+python tools/organization_mapper.py YOUR_API_KEY --format markdown
+```
+
+## Creating Support Requests
+
+When opening a GitHub issue, **please include the following information:**
+
+### Required Information
+
+1. **Integration Version**: Found in HACS or `manifest.json`
+2. **Home Assistant Version**: Found in Settings > System > Repairs
+3. **Installation Method**: HACS, Manual, etc.
+
+### Diagnostic Output
+
+**Always include output from these tools:**
+
+1. **Main Diagnostic Tool** (Required):
+```bash
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose > diagnostic_output.txt 2>&1
+```
+
+2. **Organization Mapping** (For device/sensor issues):
+```bash
+python tools/organization_mapper.py YOUR_API_KEY --format json > organization_mapping.json 2>&1
+```
+
+3. **Home Assistant Logs** with debug enabled:
 ```yaml
 logger:
   default: warning
@@ -164,4 +454,107 @@ logger:
     custom_components.loggamera: debug
 ```
 
-Then restart Home Assistant and check the logs for more detailed error messages.
+### Issue Templates
+
+#### For Connection Issues:
+- Run `test_connection.py` and `loggamera_diagnostic.py`
+- Include SSL certificate information
+- Specify network environment (Docker, VM, etc.)
+
+#### For Missing Devices/Sensors:
+- Run `organization_mapper.py` to show complete device inventory
+- Run `validate_sensor_mappings.py` to check sensor coverage
+- Include organization structure information
+
+#### For Data Update Issues:
+- Run diagnostic tool with specific device IDs
+- Include scan interval configuration
+- Show specific sensor values that aren't updating
+
+#### For "Unavailable" Sensors:
+- Run `test_device_counter.py` for organization sensors
+- Include sensor entity registry information
+- Show specific sensors that are unavailable
+
+### Tool Installation
+
+All tools are located in the `tools/` directory of the integration. To use them:
+
+1. Navigate to your custom components directory:
+```bash
+cd /config/custom_components/loggamera/tools
+```
+
+2. Install any missing dependencies:
+```bash
+pip install requests certifi
+```
+
+3. Make tools executable:
+```bash
+chmod +x *.py
+```
+
+4. Run the appropriate diagnostic tool before opening issues.
+
+### API Key Security
+
+⚠️ **Important**: When sharing diagnostic output:
+- Replace your API key with `YOUR_API_KEY_HERE`
+- Replace organization IDs with `YOUR_ORG_ID_HERE`
+- Replace device IDs with generic numbers (e.g., `12345`)
+- Remove any specific device names or identifiers
+
+Example command to sanitize output:
+```bash
+python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose | sed 's/YOUR_ACTUAL_API_KEY/YOUR_API_KEY_HERE/g' > sanitized_output.txt
+```
+
+## Advanced Troubleshooting
+
+### Custom API Testing
+
+Create custom test scripts using the integration's API client:
+
+```python
+from custom_components.loggamera.api import LoggameraAPI
+
+api = LoggameraAPI("YOUR_API_KEY")
+organizations = api.get_organizations()
+devices = api.get_devices(org_id=YOUR_ORG_ID)
+```
+
+### Manual Sensor Testing
+
+Test specific sensors manually:
+
+```python
+from custom_components.loggamera.sensor import LoggameraSensor
+# Create and test individual sensors
+```
+
+### Endpoint Coverage Testing
+
+Test which endpoints work with your devices:
+
+```bash
+python tools/organization_mapper.py YOUR_API_KEY --format markdown --verbose
+```
+
+This will show exactly which endpoints respond for each device type in your organization.
+
+## Still Having Issues?
+
+If you're still experiencing problems after running the diagnostic tools:
+
+1. Check the [GitHub Issues](https://github.com/delize/ha-loggamera-integration/issues) for similar problems
+
+2. **Create a new issue** with:
+   - Complete diagnostic tool output
+   - Organization mapping (with sensitive data removed)
+   - Detailed problem description
+   - Steps to reproduce the issue
+
+3. **Review the [API Errata](API_ERRATA.md)** for known API limitations and workarounds
+
+The diagnostic tools provide comprehensive information that helps developers quickly identify and resolve issues. Please use them before requesting support!

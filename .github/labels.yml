@@ -36,6 +36,11 @@
   color: "0366D6"
   description: "Dependency updates (patch version bump)"
 
+# Issue type labels (don't trigger version bumps)
+- name: "feature-request"
+  color: "8B5CF6"
+  description: "Feature request from users (doesn't trigger version bump)"
+
 # Special labels
 - name: "no-version-bump"
   color: "E4E669"
