@@ -276,6 +276,50 @@ SENSOR_MAP = {
         "state_class": SensorStateClass.MEASUREMENT,
         "name": "Power Phase 3",
     },  # Power phase 3
+    # HeatMeter RawData sensors
+    "544310": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Energy",
+    },
+    "544311": {
+        "device_class": None,
+        "unit": UnitOfVolume.CUBIC_METERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Volume",
+    },
+    "544320": {
+        "device_class": None,
+        "unit": "m³/h",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Flow Rate",
+    },
+    "544321": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Flow Temperature",
+    },
+    "544322": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Return Temperature",
+    },
+    "544323": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Temperature Difference",
+    },
+    "544324": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Error Code",
+        "icon": "mdi:alert-circle-outline",
+    },
 }
 
 # Temperature sensor mappings

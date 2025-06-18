@@ -1,10 +1,12 @@
 """The Loggamera integration."""
 
+import json
 import logging
 import time
 from datetime import timedelta
 from typing import Any, Dict
 
+import aiofiles
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -40,14 +42,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
     try:
         # Log integration version for troubleshooting
-        import json
 
         manifest_path = hass.config.path(
             "custom_components", "loggamera", "manifest.json"
         )
         try:
-            with open(manifest_path, "r") as f:
-                manifest = json.load(f)
+            async with aiofiles.open(manifest_path, "r") as f:
+                content = await f.read()
+                manifest = json.loads(content)
                 version = manifest.get("version", "unknown")
                 _LOGGER.info(f"🔧 Loggamera Integration v{version} starting up")
         except Exception:

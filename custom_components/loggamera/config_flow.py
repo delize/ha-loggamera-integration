@@ -110,7 +110,7 @@ class LoggameraOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize options flow."""
-        self.config_entry = config_entry
+        super().__init__()
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
