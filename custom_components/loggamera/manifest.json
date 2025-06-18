@@ -16,6 +16,6 @@
     "certifi>=2025.04.26"
   ],
   "ssdp": [],
-  "version": "0.7.4",
+  "version": "0.7.9",
   "zeroconf": []
 }
