@@ -5,11 +5,7 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback  # noqa: F401
-from homeassistant.helpers.selector import (
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
-)
+from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, NumberSelectorMode
 
 from .api import LoggameraAPI, LoggameraAPIError
 from .const import (
@@ -44,9 +40,7 @@ class LoggameraConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 api = LoggameraAPI(user_input[CONF_API_KEY])
 
                 # Try to fetch organizations
-                org_response = await self.hass.async_add_executor_job(
-                    api.get_organizations
-                )
+                org_response = await self.hass.async_add_executor_job(api.get_organizations)
 
                 # Check if organizations are returned
                 if (
@@ -125,9 +119,7 @@ class LoggameraOptionsFlow(config_entries.OptionsFlow):
                         CONF_SCAN_INTERVAL,
                         default=self.config_entry.options.get(
                             CONF_SCAN_INTERVAL,
-                            self.config_entry.data.get(
-                                CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                            ),
+                            self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                         ),
                     ): NumberSelector(
                         NumberSelectorConfig(

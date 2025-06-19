@@ -44,9 +44,7 @@ class LoggameraAPI:
     Setting a more frequent polling interval will not result in more data updates.
     """
 
-    def __init__(
-        self, api_key: str, organization_id: Optional[Union[str, int]] = None
-    ) -> None:
+    def __init__(self, api_key: str, organization_id: Optional[Union[str, int]] = None) -> None:
         """Initialize API client.
 
         Args:
@@ -111,9 +109,7 @@ class LoggameraAPI:
 
             if response.status_code != 200:
                 _LOGGER.error(f"HTTP error {response.status_code}: {response.text}")
-                raise LoggameraAPIError(
-                    f"HTTP error {response.status_code}: {response.text}"
-                )
+                raise LoggameraAPIError(f"HTTP error {response.status_code}: {response.text}")
 
             try:
                 # Handle endpoints that return no response body
@@ -129,9 +125,7 @@ class LoggameraAPI:
                 if isinstance(result["Error"], dict) and "Message" in result["Error"]:
                     error_message = result["Error"]["Message"]
                     if error_message == "invalid endpoint":
-                        _LOGGER.debug(
-                            f"Endpoint {endpoint} is not valid for this device"
-                        )
+                        _LOGGER.debug(f"Endpoint {endpoint} is not valid for this device")
                         self._endpoint_cache[endpoint] = False
                     else:
                         _LOGGER.error(f"API error: {error_message}")
@@ -166,13 +160,9 @@ class LoggameraAPI:
             _LOGGER.error("Organization ID is required for get_devices")
             raise LoggameraAPIError("Organization ID is required for get_devices")
 
-        return self._make_request(
-            API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id}
-        )
+        return self._make_request(API_ENDPOINT_DEVICES, {"OrganizationId": self.organization_id})
 
-    def _validate_device_params(
-        self, device_id: Union[str, int], device_type: str
-    ) -> int:
+    def _validate_device_params(self, device_id: Union[str, int], device_type: str) -> int:
         """Validate and convert device parameters.
 
         Args:
@@ -253,9 +243,7 @@ class LoggameraAPI:
                     primary_endpoint in self._endpoint_cache
                     and self._endpoint_cache[primary_endpoint] is False
                 ):
-                    response = self._make_request(
-                        primary_endpoint, {"DeviceId": device_id}
-                    )
+                    response = self._make_request(primary_endpoint, {"DeviceId": device_id})
 
                     # Check if this endpoint is invalid
                     if not (
@@ -280,10 +268,7 @@ class LoggameraAPI:
         for endpoint in fallback_endpoints:
             try:
                 # Skip if we know this endpoint is invalid
-                if (
-                    endpoint in self._endpoint_cache
-                    and self._endpoint_cache[endpoint] is False
-                ):
+                if endpoint in self._endpoint_cache and self._endpoint_cache[endpoint] is False:
                     continue
 
                 response = self._make_request(endpoint, {"DeviceId": device_id})
@@ -311,9 +296,7 @@ class LoggameraAPI:
         # If we get here, all endpoints failed
         raise LoggameraAPIError(f"All endpoints failed for device {device_id}")
 
-    def get_device_data(
-        self, device_id: Union[str, int], device_type: str
-    ) -> Dict[str, Any]:
+    def get_device_data(self, device_id: Union[str, int], device_type: str) -> Dict[str, Any]:
         """Get device data from the primary endpoint for the device type.
 
         This method gets data from the primary endpoint only (e.g., PowerMeter
@@ -362,15 +345,11 @@ class LoggameraAPI:
         """
         device_id = self._validate_device_params(device_id, "Unknown")
         try:
-            return self._make_request(
-                API_ENDPOINT_CAPABILITIES, {"DeviceId": device_id}
-            )
+            return self._make_request(API_ENDPOINT_CAPABILITIES, {"DeviceId": device_id})
         except LoggameraAPIError as e:
             # Don't raise error if endpoint is not available
             if "invalid endpoint" in str(e):
-                _LOGGER.warning(
-                    f"Capabilities endpoint not available for device {device_id}"
-                )
+                _LOGGER.warning(f"Capabilities endpoint not available for device {device_id}")
                 return {
                     "Data": {"ReadCapabilities": [], "WriteCapabilities": []},
                     "Error": None,
@@ -396,8 +375,7 @@ class LoggameraAPI:
             # Don't raise error if endpoint is not available
             if "invalid endpoint" in str(e):
                 _LOGGER.warning(
-                    f"Scenarios endpoint not available for organization "
-                    f"{self.organization_id}"
+                    f"Scenarios endpoint not available for organization " f"{self.organization_id}"
                 )
                 return {"Data": {"Scenarios": []}, "Error": None}
             else:

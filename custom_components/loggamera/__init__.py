@@ -43,9 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         # Log integration version for troubleshooting
 
-        manifest_path = hass.config.path(
-            "custom_components", "loggamera", "manifest.json"
-        )
+        manifest_path = hass.config.path("custom_components", "loggamera", "manifest.json")
         try:
             async with aiofiles.open(manifest_path, "r") as f:
                 content = await f.read()
@@ -64,9 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         )
 
-        _LOGGER.debug(
-            f"Setting up integration with scan interval: {scan_interval} seconds"
-        )
+        _LOGGER.debug(f"Setting up integration with scan interval: {scan_interval} seconds")
 
         # Create API client
         api = LoggameraAPI(api_key=api_key, organization_id=organization_id)
@@ -91,9 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_config_entry_first_refresh()
 
         if not coordinator.last_update_success:
-            raise ConfigEntryNotReady(
-                f"Failed to fetch initial data: {coordinator.last_exception}"
-            )
+            raise ConfigEntryNotReady(f"Failed to fetch initial data: {coordinator.last_exception}")
 
         # Store the coordinator and API client
         hass.data.setdefault(DOMAIN, {})
@@ -173,9 +167,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Always fetch organizations for organization sensors
             _LOGGER.debug("Fetching organizations for organization sensors")
-            org_response = await self.hass.async_add_executor_job(
-                self.api.get_organizations
-            )
+            org_response = await self.hass.async_add_executor_job(self.api.get_organizations)
 
             if (
                 "Data" in org_response
@@ -183,37 +175,26 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                 and org_response["Data"]["Organizations"]
             ):
                 updated_data["organizations"] = org_response["Data"]["Organizations"]
-                _LOGGER.debug(
-                    f"Found {len(updated_data['organizations'])} organizations"
-                )
+                _LOGGER.debug(f"Found {len(updated_data['organizations'])} organizations")
 
                 # Set organization ID if not already set
                 if not self.api.organization_id:
-                    self.api.organization_id = org_response["Data"]["Organizations"][0][
-                        "Id"
-                    ]
+                    self.api.organization_id = org_response["Data"]["Organizations"][0]["Id"]
                     _LOGGER.info(f"Set organization ID to {self.api.organization_id}")
             else:
                 updated_data["organizations"] = []
 
             # Fetch devices if we don't have them yet
             if not updated_data["devices"]:
-                devices_response = await self.hass.async_add_executor_job(
-                    self.api.get_devices
-                )
+                devices_response = await self.hass.async_add_executor_job(self.api.get_devices)
                 if "Data" in devices_response and "Devices" in devices_response["Data"]:
                     updated_data["devices"] = devices_response["Data"]["Devices"]
                     _LOGGER.info(f"Found {len(updated_data['devices'])} devices")
 
             # Fetch scenarios if available (for button platform if needed in future)
             try:
-                scenarios_response = await self.hass.async_add_executor_job(
-                    self.api.get_scenarios
-                )
-                if (
-                    "Data" in scenarios_response
-                    and "Scenarios" in scenarios_response["Data"]
-                ):
+                scenarios_response = await self.hass.async_add_executor_job(self.api.get_scenarios)
+                if "Data" in scenarios_response and "Scenarios" in scenarios_response["Data"]:
                     updated_data["scenarios"] = scenarios_response["Data"]["Scenarios"]
                     _LOGGER.debug(f"Found {len(updated_data['scenarios'])} scenarios")
             except LoggameraAPIError:
@@ -243,14 +224,10 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
                             # Mark this as RawData source and store separately
                             raw_data["_endpoint_used"] = "RawData"
                             raw_data["_is_raw_data"] = True
-                            updated_data["device_data"][
-                                f"rawdata_{device_id}"
-                            ] = raw_data
+                            updated_data["device_data"][f"rawdata_{device_id}"] = raw_data
                             _LOGGER.debug(f"Collected RawData for device {device_id}")
                     except LoggameraAPIError as e:
-                        _LOGGER.debug(
-                            f"RawData not available for device {device_id}: {e}"
-                        )
+                        _LOGGER.debug(f"RawData not available for device {device_id}: {e}")
                         # This is normal - not all devices support RawData
 
                     # Log which data sources were used

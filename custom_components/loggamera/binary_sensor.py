@@ -3,10 +3,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -42,11 +39,7 @@ async def async_setup_entry(
 
         # Process device data to find binary sensors
         device_data = coordinator.data.get("device_data", {}).get(str(device_id))
-        if (
-            not device_data
-            or "Data" not in device_data
-            or "Values" not in device_data["Data"]
-        ):
+        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
             continue
 
         for value in device_data["Data"]["Values"]:
@@ -71,9 +64,7 @@ async def async_setup_entry(
 class LoggameraBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Representation of a Loggamera binary sensor."""
 
-    def __init__(
-        self, coordinator, api, device_id, device_name, device_type, value_data
-    ):
+    def __init__(self, coordinator, api, device_id, device_name, device_type, value_data):
         """Initialize the binary sensor."""
         super().__init__(coordinator)
         self.api = api
@@ -111,14 +102,8 @@ class LoggameraBinarySensor(CoordinatorEntity, BinarySensorEntity):
     def is_on(self):
         """Return true if the binary sensor is on."""
         try:
-            device_data = self.coordinator.data.get("device_data", {}).get(
-                str(self._device_id)
-            )
-            if (
-                not device_data
-                or "Data" not in device_data
-                or "Values" not in device_data["Data"]
-            ):
+            device_data = self.coordinator.data.get("device_data", {}).get(str(self._device_id))
+            if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
                 return self._state
 
             for value in device_data["Data"]["Values"]:

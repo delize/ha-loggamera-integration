@@ -79,11 +79,7 @@ class LoggameraScenarioButton(CoordinatorEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Execute the scenario when the button is pressed."""
         try:
-            _LOGGER.info(
-                f"Executing scenario: {self.scenario_name} (ID: {self.scenario_id})"
-            )
-            await self.hass.async_add_executor_job(
-                self.api.execute_scenario, self.scenario_id
-            )
+            _LOGGER.info(f"Executing scenario: {self.scenario_name} (ID: {self.scenario_id})")
+            await self.hass.async_add_executor_job(self.api.execute_scenario, self.scenario_id)
         except LoggameraAPIError as err:
             _LOGGER.error(f"Failed to execute scenario {self.scenario_id}: {err}")
