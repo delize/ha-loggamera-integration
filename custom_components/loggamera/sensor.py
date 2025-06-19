@@ -84,14 +84,14 @@ SENSOR_MAP = {
         "device_class": None,
         "unit": None,
         "state_class": None,
-        "name": "Parent Organization",
+        "name": "Parent Organization ID",
         "icon": "mdi:account-supervisor",
     },
     "child_organizations": {
         "device_class": None,
         "unit": None,
         "state_class": None,
-        "name": "Child Organizations Count",
+        "name": "Child Organization Count",
         "icon": "mdi:account-group",
     },
     "user_count": {
@@ -107,6 +107,13 @@ SENSOR_MAP = {
         "state_class": None,
         "name": "Member Count",
         "icon": "mdi:account-multiple",
+    },
+    "is_parent_organization": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Is Parent Organization",
+        "icon": "mdi:account-supervisor-circle",
     },
     # RawData specific values - these are the most common ones
     "544352": {
@@ -875,12 +882,12 @@ async def async_setup_entry(  # noqa: C901
             {
                 "Name": "child_organizations",
                 "Value": child_orgs_count,
-                "ClearTextName": "Child Organizations Count",
+                "ClearTextName": "Child Organization Count",
             },
             {
                 "Name": "parent_organization",
                 "Value": parent_org_name,
-                "ClearTextName": "Parent Organization",
+                "ClearTextName": "Parent Organization ID",
             },
             {
                 "Name": "user_count",
@@ -891,6 +898,12 @@ async def async_setup_entry(  # noqa: C901
                 "Name": "member_count",
                 "Value": member_count,  # Future-ready: will use API data when available
                 "ClearTextName": "Member Count",
+            },
+            {
+                "Name": "is_parent_organization",
+                "Value": child_orgs_count
+                > 0,  # True if this org has children (is a parent)
+                "ClearTextName": "Is Parent Organization",
             },
         ]
 
@@ -1550,6 +1563,18 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                             member_count = len(current_org["MemberList"])
                         return member_count
                 return 0
+            elif self.sensor_name == "is_parent_organization":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                if self.api.organization_id and organizations_data:
+                    child_orgs_count = len(
+                        [
+                            org
+                            for org in organizations_data
+                            if org.get("ParentId") == self.api.organization_id
+                        ]
+                    )
+                    return child_orgs_count > 0  # True if this org has children
+                return False
             return None
 
         # Determine which data source to use based on sensor type
