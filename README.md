@@ -12,54 +12,11 @@
 [![Latest Commit](https://badgen.net/github/last-commit/delize/home-assistant-loggamera-integration/main?cache=300)](https://github.com/delize/home-assistant-loggamera-integration/commit/HEAD)
 
 
-This integration allows you to monitor your Loggamera devices in Home Assistant, providing comprehensive energy monitoring and device control capabilities.
 
-**Latest Version Highlights**: This integration has been recently updated with significant improvements including comprehensive **HeatMeter device support** with 7 dedicated sensors, better sensor reliability, resolved configuration warnings, enhanced API validation, performance optimizations, and expanded organization support.
 
-## Supported Devices
 
-- **PowerMeter** (Electricity meters) - Monitor energy consumption and power usage
-- **RoomSensor** (Temperature and humidity sensors) - Track environmental conditions
-- **WaterMeter** (Water meters) - Monitor water consumption
-- **HeatMeter** (Heat meters) - Comprehensive heating system monitoring with energy consumption, flow rates, supply/return temperatures, temperature differential, and flow volume tracking
-- **CoolingUnit** - Monitor and control cooling systems
-- **HeatPump** - Monitor and control heat pump systems
-
-## Features
-
-### Core Functionality
-- **Energy Monitoring**: Monitor power consumption in real-time with full Home Assistant Energy dashboard integration
-- **Environmental Sensors**: Track temperature and humidity readings from room sensors
-- **Water Usage**: Monitor water consumption from water meters
-- **Scenario Control**: Execute predefined scenarios through switches
-- **Alarm Monitoring**: Binary sensors for device alarm states
-- **Multi-Device Support**: Manage multiple Loggamera devices from a single integration
-- **Organization Tracking**: Monitor device counts and organization hierarchy
-
-### Advanced Sensor Management
-- **Clean Device Interface**: Each device type gets appropriate primary sensors (PowerMeter → 4 clean sensors, WaterMeter → standard water sensors, etc.)
-- **Detailed RawData Sensors**: Additional detailed sensors available via RawData endpoint (disabled by default to prevent entity spam)
-- **Smart Entity Naming**: Clear naming patterns distinguish between standard sensors (`loggamera_{device_id}_{sensor}`) and detailed sensors (`rawdata_{device_id}_{device_type}_{sensor}`)
-- **Dynamic Sensor Detection**: Automatically detects and properly configures unknown sensors using intelligent analysis of API metadata
-- **User Control**: Standard sensors enabled by default, detailed sensors can be manually enabled per user preference
-- **Improved Sensor Availability**: Enhanced sensor state management with better offline detection
-
-### Recent Improvements & Fixes
-- **HeatMeter Support**: Comprehensive new support for HeatMeter devices with 7 dedicated sensors (energy, volume, flow rate, supply/return temperatures, temperature differential, error codes)
-- **Configuration Warning Resolution**: Fixed warning about `config_entry` parameter in async setup
-- **Enhanced API Validation**: Improved validation for untested API endpoints
-- **Better Error Handling**: More robust error handling for API connectivity issues
-- **Sensor Reliability**: Fixed sensor availability and state management issues
-- **Performance Optimizations**: Reduced unnecessary API calls and improved caching mechanisms
-- **Organization Support**: Added comprehensive organization and device hierarchy tracking
-- **Async File Operations**: Fixed blocking file operations that could impact Home Assistant performance
-
-### Developer Experience
-- **Comprehensive Diagnostics**: Built-in diagnostic tools for troubleshooting
-- **Robust API Handling**: Intelligent endpoint selection with graceful fallbacks
-- **Future-Proof Architecture**: Handles new device types and unknown sensors automatically
-- **Extensive Logging**: Detailed logging for debugging and development
-- **Code Quality**: Pre-commit hooks and automated linting ensure consistent code quality
+<details>
+<summary>📋 Table of Contents</summary>
 
 - [Loggamera Integration for Home Assistant](#loggamera-integration-for-home-assistant)
   - [Supported Devices](#supported-devices)
@@ -109,6 +66,60 @@ This integration allows you to monitor your Loggamera devices in Home Assistant,
   - [Issues and Support](#issues-and-support)
   - [License](#license)
 
+</details>
+
+This integration allows you to monitor your Loggamera devices in Home Assistant, providing comprehensive energy monitoring and device control capabilities.
+
+**Latest Version Highlights**: This integration has been recently updated with significant improvements including comprehensive **HeatMeter device support** with 7 dedicated sensors, better sensor reliability, resolved configuration warnings, enhanced API validation, performance optimizations, and expanded organization support.
+
+## Supported Devices
+
+- **PowerMeter** (Electricity meters) - Monitor energy consumption and power usage ([Screenshots](#example-screenshot-of-powermeter-functionality-raw-data-entities-disabled))
+- **RoomSensor** (Temperature and humidity sensors) - Track environmental conditions ([Screenshots](#example-screenshot-of-roomsensor-functionality-raw-data-entities-disabled))
+- **WaterMeter** (Water meters) - Monitor water consumption ([Screenshots](#example-screenshot-of-watermeter-functionality-raw-data-entities-disabled))
+- **HeatMeter** (Heat meters) - Comprehensive heating system monitoring with energy consumption, flow rates, supply/return temperatures, temperature differential, and flow volume tracking ([Screenshots](#example-screenshot-of-heatmeter-functionality-raw-data-entities-disabled))
+- **CoolingUnit** - Monitor and control cooling systems
+- **HeatPump** - Monitor and control heat pump systems
+
+## Features
+
+### Core Functionality
+
+- **Energy Monitoring**: Monitor power consumption in real-time with full Home Assistant Energy dashboard integration
+- **Environmental Sensors**: Track temperature and humidity readings from room sensors
+- **Water Usage**: Monitor water consumption from water meters
+- **Scenario Control**: Execute predefined scenarios through switches
+- **Alarm Monitoring**: Binary sensors for device alarm states
+- **Multi-Device Support**: Manage multiple Loggamera devices from a single integration
+- **Organization Tracking**: Monitor device counts and organization hierarchy
+
+### Advanced Sensor Management
+
+- **Clean Device Interface**: Each device type gets appropriate primary sensors (PowerMeter → 4 clean sensors, WaterMeter → standard water sensors, etc.)
+- **Detailed RawData Sensors**: Additional detailed sensors available via RawData endpoint (disabled by default to prevent entity spam)
+- **Smart Entity Naming**: Clear naming patterns distinguish between standard sensors (`loggamera_{device_id}_{sensor}`) and detailed sensors (`rawdata_{device_id}_{device_type}_{sensor}`)
+- **Dynamic Sensor Detection**: Automatically detects and properly configures unknown sensors using intelligent analysis of API metadata
+- **User Control**: Standard sensors enabled by default, detailed sensors can be manually enabled per user preference
+- **Improved Sensor Availability**: Enhanced sensor state management with better offline detection
+
+### Recent Improvements & Fixes
+
+- **HeatMeter Support**: Comprehensive new support for HeatMeter devices with 7 dedicated sensors (energy, volume, flow rate, supply/return temperatures, temperature differential, error codes)
+- **Configuration Warning Resolution**: Fixed warning about `config_entry` parameter in async setup
+- **Enhanced API Validation**: Improved validation for untested API endpoints
+- **Better Error Handling**: More robust error handling for API connectivity issues
+- **Sensor Reliability**: Fixed sensor availability and state management issues
+- **Performance Optimizations**: Reduced unnecessary API calls and improved caching mechanisms
+- **Organization Support**: Added comprehensive organization and device hierarchy tracking
+- **Async File Operations**: Fixed blocking file operations that could impact Home Assistant performance
+
+### Developer Experience
+
+- **Comprehensive Diagnostics**: Built-in diagnostic tools for troubleshooting
+- **Robust API Handling**: Intelligent endpoint selection with graceful fallbacks
+- **Future-Proof Architecture**: Handles new device types and unknown sensors automatically
+- **Extensive Logging**: Detailed logging for debugging and development
+- **Code Quality**: Pre-commit hooks and automated linting ensure consistent code quality
 
 ## Installation
 
