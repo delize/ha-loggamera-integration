@@ -17,6 +17,6 @@
     "aiofiles>=0.8.0"
   ],
   "ssdp": [],
-  "version": "0.7.15",
+  "version": "0.7.16",
   "zeroconf": []
 }
