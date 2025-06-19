@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.9.0] - 2025-06-19
+
+### Minor Release
+- Implement rate limit, network issue detection, circuit breaker (#61) by @delize
+
+
 ## [0.8.0] - 2025-06-19
 
 ### Minor Release
