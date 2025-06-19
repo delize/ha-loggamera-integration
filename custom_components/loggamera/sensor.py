@@ -352,7 +352,7 @@ SENSOR_MAP = {
     "544324": {
         "device_class": None,
         "unit": None,
-        "state_class": None,
+        "state_class": SensorStateClass.MEASUREMENT,
         "name": "Error Code",
         "icon": "mdi:alert-circle-outline",
     },
