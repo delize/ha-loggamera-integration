@@ -1,10 +1,13 @@
 """API client for Loggamera."""
 
+import asyncio
 import logging
 import platform
 import ssl
 import sys
+import time
 from datetime import datetime  # noqa: F401
+from enum import Enum
 from typing import Any, Dict, Optional, Union
 
 import certifi
@@ -36,6 +39,87 @@ class LoggameraAPIError(Exception):
     pass
 
 
+class ErrorType(Enum):
+    """Classification of different error types for retry strategies."""
+
+    NETWORK = "network"  # Network connectivity issues - retry with backoff
+    HTTP_ERROR = "http_error"  # HTTP errors (4xx, 5xx) - limited retries
+    API_ERROR = "api_error"  # API-specific errors - no retry
+    TIMEOUT = "timeout"  # Request timeout - retry with backoff
+    INVALID_ENDPOINT = "invalid_endpoint"  # Invalid endpoint - no retry
+
+
+class CircuitBreaker:
+    """Circuit breaker to prevent hitting failing endpoints repeatedly."""
+
+    def __init__(self, failure_threshold: int = 6, timeout: int = 300):
+        """Initialize circuit breaker.
+
+        Args:
+            failure_threshold: Number of failures before opening circuit
+            timeout: Time in seconds to wait before trying again
+        """
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failure_count = 0
+        self.last_failure_time = 0
+        self.state = "closed"  # closed, open, half_open
+
+    def is_open(self) -> bool:
+        """Check if circuit is open (should block requests)."""
+        if self.state == "open":
+            if time.time() - self.last_failure_time > self.timeout:
+                self.state = "half_open"
+                _LOGGER.debug("Circuit breaker moving to half-open state")
+                return False
+            return True
+        return False
+
+    def record_success(self):
+        """Record successful request."""
+        self.failure_count = 0
+        if self.state == "half_open":
+            self.state = "closed"
+            _LOGGER.debug("Circuit breaker closed after successful request")
+
+    def record_failure(self):
+        """Record failed request."""
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+
+        if self.failure_count >= self.failure_threshold:
+            self.state = "open"
+            _LOGGER.warning(
+                f"Circuit breaker opened after {self.failure_count} failures. "
+                f"Will retry in {self.timeout} seconds"
+            )
+
+
+class RetryConfig:
+    """Configuration for retry behavior."""
+
+    def __init__(self):
+        self.max_retries = 3
+        self.backoff_delays = [15, 30, 60]  # seconds
+        self.retryable_errors = {
+            ErrorType.NETWORK,
+            ErrorType.TIMEOUT,
+            ErrorType.HTTP_ERROR,  # Some HTTP errors may be retryable
+        }
+
+    def should_retry(self, error_type: ErrorType, attempt: int) -> bool:
+        """Determine if we should retry based on error type and attempt number."""
+        if attempt >= self.max_retries:
+            return False
+        return error_type in self.retryable_errors
+
+    def get_delay(self, attempt: int) -> int:
+        """Get delay for given attempt (0-based)."""
+        if attempt < len(self.backoff_delays):
+            return self.backoff_delays[attempt]
+        return self.backoff_delays[-1]  # Use last delay for any additional attempts
+
+
 class LoggameraAPI:
     """API client for Loggamera.
 
@@ -62,6 +146,10 @@ class LoggameraAPI:
         # Keep track of last data timestamp to log changes
         self._last_data_timestamp = {}
 
+        # Retry and circuit breaker configuration
+        self.retry_config = RetryConfig()
+        self.circuit_breakers = {}  # Per-endpoint circuit breakers
+
         # Log basic environment info
         _LOGGER.info(f"Python version: {sys.version}")
         _LOGGER.info(
@@ -77,10 +165,46 @@ class LoggameraAPI:
         # from http.client import HTTPConnection
         # HTTPConnection.debuglevel = 1
 
+    def _get_circuit_breaker(self, endpoint: str) -> CircuitBreaker:
+        """Get or create circuit breaker for endpoint."""
+        if endpoint not in self.circuit_breakers:
+            self.circuit_breakers[endpoint] = CircuitBreaker()
+        return self.circuit_breakers[endpoint]
+
+    def _classify_error(self, exception: Exception) -> ErrorType:
+        """Classify error type for retry strategy."""
+        if isinstance(exception, requests.exceptions.Timeout):
+            return ErrorType.TIMEOUT
+        elif isinstance(
+            exception,
+            (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ConnectTimeout,
+                requests.exceptions.ReadTimeout,
+            ),
+        ):
+            return ErrorType.NETWORK
+        elif isinstance(exception, requests.exceptions.HTTPError):
+            return ErrorType.HTTP_ERROR
+        elif isinstance(exception, LoggameraAPIError):
+            if "invalid endpoint" in str(exception).lower():
+                return ErrorType.INVALID_ENDPOINT
+            return ErrorType.API_ERROR
+        else:
+            return ErrorType.NETWORK  # Default to network error for unknown exceptions
+
+    async def _sleep_async(self, delay: int):
+        """Async sleep for retry delays."""
+        await asyncio.sleep(delay)
+
+    def _sleep_sync(self, delay: int):
+        """Sync sleep for retry delays."""
+        time.sleep(delay)
+
     def _make_request(  # noqa: C901
         self, endpoint: str, data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Make a request to the Loggamera API.
+        """Make a request to the Loggamera API with retry and circuit breaker.
 
         Args:
             endpoint: The API endpoint to call (without leading slash)
@@ -92,6 +216,13 @@ class LoggameraAPI:
         Raises:
             LoggameraAPIError: If the request fails or returns an error
         """
+        # Check circuit breaker
+        circuit_breaker = self._get_circuit_breaker(endpoint)
+        if circuit_breaker.is_open():
+            raise LoggameraAPIError(
+                f"Circuit breaker is open for endpoint {endpoint}. " f"Too many recent failures."
+            )
+
         url = f"{API_URL}/{endpoint}"
         headers = {"Content-Type": "application/json"}
 
@@ -103,41 +234,118 @@ class LoggameraAPI:
         if "ApiKey" not in data:
             data["ApiKey"] = self.api_key
 
-        try:
-            _LOGGER.debug(f"Making request to {endpoint}")
-            response = requests.post(url, headers=headers, json=data, timeout=30)
+        last_exception = None
 
-            if response.status_code != 200:
-                _LOGGER.error(f"HTTP error {response.status_code}: {response.text}")
-                raise LoggameraAPIError(f"HTTP error {response.status_code}: {response.text}")
-
+        # Retry loop
+        for attempt in range(self.retry_config.max_retries + 1):
             try:
-                # Handle endpoints that return no response body
-                if not response.text.strip():
-                    return {"Data": None, "Error": None}
-                result = response.json()
-            except ValueError:
-                _LOGGER.error(f"Invalid JSON response: {response.text}")
-                raise LoggameraAPIError(f"Invalid JSON response: {response.text}")
-
-            # Check for API errors
-            if "Error" in result and result["Error"] is not None:
-                if isinstance(result["Error"], dict) and "Message" in result["Error"]:
-                    error_message = result["Error"]["Message"]
-                    if error_message == "invalid endpoint":
-                        _LOGGER.debug(f"Endpoint {endpoint} is not valid for this device")
-                        self._endpoint_cache[endpoint] = False
-                    else:
-                        _LOGGER.error(f"API error: {error_message}")
-                        raise LoggameraAPIError(f"API error: {error_message}")
+                if attempt > 0:
+                    _LOGGER.debug(f"Retry attempt {attempt} for {endpoint}")
                 else:
-                    _LOGGER.error(f"Unknown API error: {result['Error']}")
-                    raise LoggameraAPIError(f"Unknown API error: {result['Error']}")
+                    _LOGGER.debug(f"Making request to {endpoint}")
 
-            return result
-        except requests.exceptions.RequestException as err:
-            _LOGGER.error(f"Request error: {err}")
-            raise LoggameraAPIError(f"Request error: {err}")
+                response = self.session.post(url, headers=headers, json=data, timeout=30)
+
+                if response.status_code != 200:
+                    error_msg = f"HTTP error {response.status_code}: {response.text}"
+                    _LOGGER.error(error_msg)
+
+                    # For HTTP errors, determine if retryable
+                    if response.status_code >= 500:  # Server errors are retryable
+                        exception = LoggameraAPIError(error_msg)
+                        last_exception = exception
+                        error_type = self._classify_error(exception)
+                    elif response.status_code == 429:  # Rate limiting
+                        exception = LoggameraAPIError(error_msg)
+                        last_exception = exception
+                        error_type = self._classify_error(exception)
+                    else:  # Client errors (4xx) are not retryable
+                        circuit_breaker.record_failure()
+                        raise LoggameraAPIError(error_msg)
+
+                    # Check if we should retry this HTTP error
+                    if self.retry_config.should_retry(error_type, attempt):
+                        delay = self.retry_config.get_delay(attempt)
+                        _LOGGER.warning(
+                            f"Request to {endpoint} failed (attempt {attempt + 1}): {error_msg}. "
+                            f"Retrying in {delay} seconds... "
+                            f"(HTTP {response.status_code})"
+                        )
+                        self._sleep_sync(delay)
+                        continue
+                    else:
+                        circuit_breaker.record_failure()
+                        raise exception
+                else:
+                    # Parse successful response
+                    try:
+                        # Handle endpoints that return no response body
+                        if not response.text.strip():
+                            result = {"Data": None, "Error": None}
+                        else:
+                            result = response.json()
+                    except ValueError as e:
+                        error_msg = f"Invalid JSON response: {response.text}"
+                        _LOGGER.error(error_msg)
+                        circuit_breaker.record_failure()
+                        raise LoggameraAPIError(error_msg) from e
+
+                    # Check for API errors
+                    if "Error" in result and result["Error"] is not None:
+                        if isinstance(result["Error"], dict) and "Message" in result["Error"]:
+                            error_message = result["Error"]["Message"]
+                            if error_message == "invalid endpoint":
+                                _LOGGER.debug(f"Endpoint {endpoint} is not valid for this device")
+                                self._endpoint_cache[endpoint] = False
+                                circuit_breaker.record_failure()
+                                raise LoggameraAPIError(f"API error: {error_message}")
+                            else:
+                                _LOGGER.error(f"API error: {error_message}")
+                                circuit_breaker.record_failure()
+                                raise LoggameraAPIError(f"API error: {error_message}")
+                        else:
+                            error_msg = f"Unknown API error: {result['Error']}"
+                            _LOGGER.error(error_msg)
+                            circuit_breaker.record_failure()
+                            raise LoggameraAPIError(error_msg)
+
+                    # Success!
+                    circuit_breaker.record_success()
+                    if attempt > 0:
+                        _LOGGER.info(f"Request to {endpoint} succeeded after {attempt} retries")
+                    return result
+
+            except Exception as e:
+                last_exception = e
+                error_type = self._classify_error(e)
+
+                # Check if we should retry
+                if self.retry_config.should_retry(error_type, attempt):
+                    delay = self.retry_config.get_delay(attempt)
+                    _LOGGER.warning(
+                        f"Request to {endpoint} failed (attempt {attempt + 1}): {e}. "
+                        f"Retrying in {delay} seconds... "
+                        f"(Error type: {error_type.value})"
+                    )
+                    self._sleep_sync(delay)
+                    continue
+                else:
+                    # No more retries or non-retryable error
+                    circuit_breaker.record_failure()
+                    if error_type in self.retry_config.retryable_errors:
+                        _LOGGER.error(
+                            f"Request to {endpoint} failed after {attempt + 1} attempts: {e}"
+                        )
+                    else:
+                        _LOGGER.error(f"Request to {endpoint} failed with non-retryable error: {e}")
+                    break
+
+        # If we get here, all retries failed
+        circuit_breaker.record_failure()
+        if isinstance(last_exception, LoggameraAPIError):
+            raise last_exception
+        else:
+            raise LoggameraAPIError(f"Request failed: {last_exception}") from last_exception
 
     def get_organizations(self) -> Dict[str, Any]:
         """Get organizations.
