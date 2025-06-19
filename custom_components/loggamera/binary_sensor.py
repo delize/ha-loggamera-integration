@@ -187,9 +187,11 @@ class LoggameraAPIHealthSensor(CoordinatorEntity, BinarySensorEntity):
             attrs = {
                 "devices_with_gaps": gap_status.get("devices_with_gaps", 0),
                 "total_devices_tracked": gap_status.get("total_devices_tracked", 0),
-                "last_update": self.coordinator.last_update_time.isoformat()
-                if self.coordinator.last_update_time
-                else None,
+                "last_update": (
+                    self.coordinator.last_update_time.isoformat()
+                    if self.coordinator.last_update_time
+                    else None
+                ),
             }
 
             # Add details for devices with active gaps
