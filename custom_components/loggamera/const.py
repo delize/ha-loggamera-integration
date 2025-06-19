@@ -39,4 +39,4 @@ SENSOR_WATER = "water"
 SENSOR_VALUE = "value"
 
 # Platform definitions
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "binary_sensor", "switch"]

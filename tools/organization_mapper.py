@@ -321,6 +321,11 @@ class OrganizationMapper:
 
     def generate_statistics(self) -> Dict[str, Any]:
         """Generate comprehensive mapping statistics."""
+        # Convert endpoint_coverage sets to lists for JSON serialization
+        device_type_endpoints = {}
+        for device_type, endpoints in self.endpoint_coverage.items():
+            device_type_endpoints[device_type] = list(endpoints)
+
         stats = {
             "summary": {
                 "total_organizations": len(self.organizations),
@@ -332,7 +337,7 @@ class OrganizationMapper:
             "sensor_types": defaultdict(int),
             "endpoint_usage": defaultdict(int),
             "organization_breakdown": [],
-            "device_type_endpoints": dict(self.endpoint_coverage),
+            "device_type_endpoints": device_type_endpoints,
             "sensor_name_frequency": defaultdict(int),
         }
 
@@ -357,6 +362,12 @@ class OrganizationMapper:
                     "endpoint_coverage": list(org["endpoint_coverage"]),
                 }
             )
+
+        # Convert defaultdicts to regular dicts for JSON serialization
+        stats["device_types"] = dict(stats["device_types"])
+        stats["sensor_types"] = dict(stats["sensor_types"])
+        stats["endpoint_usage"] = dict(stats["endpoint_usage"])
+        stats["sensor_name_frequency"] = dict(stats["sensor_name_frequency"])
 
         return stats
 
@@ -385,6 +396,13 @@ class OrganizationMapper:
 
     def export_json(self, output_file: str) -> None:
         """Export complete mapping to JSON."""
+        # Convert sets to lists for JSON serialization
+        organizations_serializable = []
+        for org in self.organizations:
+            org_copy = org.copy()
+            org_copy["endpoint_coverage"] = list(org["endpoint_coverage"])
+            organizations_serializable.append(org_copy)
+
         mapping_data = {
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
@@ -393,7 +411,7 @@ class OrganizationMapper:
                 "total_devices": len(self.devices),
                 "total_sensors": len(self.sensors),
             },
-            "organizations": self.organizations,
+            "organizations": organizations_serializable,
             "devices": self.devices,
             "sensors": self.sensors,
             "statistics": self.generate_statistics(),
@@ -477,7 +495,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 - **Devices**: {org['device_count']}
 - **Total Sensors**: {org['sensor_count']}
-- **Endpoint Coverage**: {', '.join(sorted(org['endpoint_coverage']))}
+- **Endpoint Coverage**: {', '.join(sorted(list(org['endpoint_coverage'])))}
 
 #### Devices
 

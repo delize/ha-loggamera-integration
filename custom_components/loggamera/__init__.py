@@ -154,6 +154,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             "devices": [],
             "device_data": {},
             "scenarios": [],
+            "organizations": [],
         }
 
         _LOGGER.debug(
@@ -170,22 +171,30 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             # Start with existing data - we'll update it
             updated_data = self.data.copy()
 
-            # Fetch organizations first if needed (typically not necessary)
-            if not self.api.organization_id:
-                _LOGGER.debug("No organization ID set, fetching organizations")
-                org_response = await self.hass.async_add_executor_job(
-                    self.api.get_organizations
+            # Always fetch organizations for organization sensors
+            _LOGGER.debug("Fetching organizations for organization sensors")
+            org_response = await self.hass.async_add_executor_job(
+                self.api.get_organizations
+            )
+
+            if (
+                "Data" in org_response
+                and "Organizations" in org_response["Data"]
+                and org_response["Data"]["Organizations"]
+            ):
+                updated_data["organizations"] = org_response["Data"]["Organizations"]
+                _LOGGER.debug(
+                    f"Found {len(updated_data['organizations'])} organizations"
                 )
 
-                if (
-                    "Data" in org_response
-                    and "Organizations" in org_response["Data"]
-                    and org_response["Data"]["Organizations"]
-                ):
+                # Set organization ID if not already set
+                if not self.api.organization_id:
                     self.api.organization_id = org_response["Data"]["Organizations"][0][
                         "Id"
                     ]
                     _LOGGER.info(f"Set organization ID to {self.api.organization_id}")
+            else:
+                updated_data["organizations"] = []
 
             # Fetch devices if we don't have them yet
             if not updated_data["devices"]:

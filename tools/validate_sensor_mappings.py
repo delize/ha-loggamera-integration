@@ -171,6 +171,223 @@ SENSOR_MAP = {
         "state_class": "total_increasing",
         "name": "Water Used Since Midnight",
     },
+    # ChargingStation voltage sensors - corrects API misspelling "Voltate"
+    "544426": {
+        "device_class": "voltage",
+        "unit": "V",
+        "state_class": "measurement",
+        "name": "Voltage Phase 1",  # API says "Voltate (Phase 1)" - corrected
+    },
+    "544427": {
+        "device_class": "voltage",
+        "unit": "V",
+        "state_class": "measurement",
+        "name": "Voltage Phase 2",  # API says "Voltate (Phase 2)" - corrected
+    },
+    "544428": {
+        "device_class": "voltage",
+        "unit": "V",
+        "state_class": "measurement",
+        "name": "Voltage Phase 3",  # API says "Voltate (Phase 3)" - corrected
+    },
+    # RoomSensor signal quality - corrects API misspelling "Signal-Noice"
+    "543837": {
+        "device_class": None,
+        "unit": "dB",
+        "state_class": "measurement",
+        "name": "Signal to Noise Ratio",  # API says "Signal-Noice relation (Snr)" - corrected
+    },
+    # PowerMeter RawData sensors (comprehensive)
+    "543817": {
+        "device_class": "energy",
+        "unit": "kWh",
+        "state_class": "total_increasing",
+        "name": "Energy",
+    },
+    "543801": {
+        "device_class": "power",
+        "unit": "W",
+        "state_class": "measurement",
+        "name": "Power Average",
+    },
+    "543802": {
+        "device_class": "voltage",
+        "unit": "V",
+        "state_class": "measurement",
+        "name": "Voltage",
+    },
+    "543803": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 1",
+    },
+    "543804": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 2",
+    },
+    "543805": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 3",
+    },
+    "543842": {
+        "device_class": "power",
+        "unit": "W",
+        "state_class": "measurement",
+        "name": "Power Peak",
+    },
+    "543821": {
+        "device_class": "energy",
+        "unit": "kWh",
+        "state_class": "total_increasing",
+        "name": "Consumption Interval",
+    },
+    # ChargingStation RawData sensors
+    "544424": {
+        "device_class": "energy",
+        "unit": "kWh",
+        "state_class": "total_increasing",
+        "name": "Total Consumption",
+    },
+    "544434": {
+        "device_class": "energy",
+        "unit": "kWh",
+        "state_class": "total_increasing",
+        "name": "Session Consumption",
+    },
+    "544429": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 1",
+    },
+    "544430": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 2",
+    },
+    "544431": {
+        "device_class": "current",
+        "unit": "A",
+        "state_class": "measurement",
+        "name": "Current Phase 3",
+    },
+    "544425": {
+        "device_class": "energy",
+        "unit": "kWh",
+        "state_class": "total_increasing",
+        "name": "Consumption Interval",
+    },
+    "544432": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Charging State",
+    },
+    "544443": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Load Balanced",
+    },
+    "544441": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Firmware Version",
+    },
+    "544442": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Hardware Version",
+    },
+    "544436": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Status Code A",
+    },
+    "544437": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Status Code B",
+    },
+    # RoomSensor RawData sensors
+    "543700": {
+        "device_class": "temperature",
+        "unit": "°C",
+        "state_class": "measurement",
+        "name": "Temperature",
+    },
+    "543701": {
+        "device_class": "humidity",
+        "unit": "%",
+        "state_class": "measurement",
+        "name": "Humidity",
+    },
+    "543709": {
+        "device_class": "battery",
+        "unit": "%",
+        "state_class": "measurement",
+        "name": "Battery",
+    },
+    "543836": {
+        "device_class": "signal_strength",
+        "unit": "dBm",
+        "state_class": "measurement",
+        "name": "Signal Strength RSSI",
+    },
+    "543838": {
+        "device_class": None,
+        "unit": None,
+        "state_class": "measurement",
+        "name": "Spreading Factor",
+    },
+    # WaterMeter RawData sensors
+    "422568": {
+        "device_class": None,
+        "unit": "m³",
+        "state_class": "total_increasing",
+        "name": "Meter Value",
+    },
+    "542175": {
+        "device_class": "water",
+        "unit": "L",
+        "state_class": "total_increasing",
+        "name": "Consumption Since Midnight",
+    },
+    "542176": {
+        "device_class": None,
+        "unit": "L/min",
+        "state_class": "measurement",
+        "name": "Current Flow",
+    },
+    "544316": {
+        "device_class": "water",
+        "unit": "L",
+        "state_class": "total_increasing",
+        "name": "Consumption Interval",
+    },
+    # Generic Device alarm sensors
+    "alarmCodeNumber": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Alarm Code Number",
+    },
+    "alarmClassification": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Alarm Classification",
+    },
 }
 
 

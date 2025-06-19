@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Quick test to verify improved sensor mapping coverage."""
 
+import os
 import sys
 
 import requests
 
-API_KEY = "YOUR_API_KEY_HERE"
+# Get API key from environment variable or use placeholder
+API_KEY = os.getenv("LOGGAMERA_API_KEY", "YOUR_API_KEY_HERE")
 BASE_URL = "https://platform.loggamera.se/api/v2"
 
 # Updated sensor mappings (key ones we added)
@@ -50,10 +52,64 @@ NEW_MAPPINGS = {
 }
 
 
+def test_api_request(endpoint_url, device_id, device_name):
+    """Make an API request with proper error handling.
+
+    Args:
+        endpoint_url: Full URL for the API endpoint
+        device_id: Device ID to query
+        device_name: Human-readable device name for logging
+
+    Returns:
+        tuple: (success: bool, data: dict or None, error: str or None)
+    """
+    try:
+        response = requests.post(
+            endpoint_url,
+            json={"ApiKey": API_KEY, "DeviceId": device_id},
+            headers={"Content-Type": "application/json"},
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            return False, None, f"HTTP {response.status_code}: {response.text}"
+
+        if not response.text.strip():
+            return False, None, "Empty response body"
+
+        try:
+            data = response.json()
+        except ValueError as e:
+            return False, None, f"Invalid JSON response: {e}"
+
+        if data is None:
+            return False, None, "API returned null response"
+
+        # Check for API errors
+        if "Error" in data and data["Error"] is not None:
+            if isinstance(data["Error"], dict) and "Message" in data["Error"]:
+                error_msg = data["Error"]["Message"]
+                return False, None, f"API error: {error_msg}"
+            else:
+                return False, None, f"Unknown API error: {data['Error']}"
+
+        return True, data, None
+
+    except requests.exceptions.RequestException as e:
+        return False, None, f"Request failed: {e}"
+    except Exception as e:
+        return False, None, f"Unexpected error: {e}"
+
+
 def test_coverage_improvement():
     """Test the improvement in sensor mapping coverage."""
     print("🔧 Testing Sensor Mapping Coverage Improvement")
     print("=" * 60)
+
+    if API_KEY == "YOUR_API_KEY_HERE":
+        print("❌ Error: API key not configured")
+        print("   Set LOGGAMERA_API_KEY environment variable or update the script")
+        return False
 
     total_sensors = 0
     newly_mapped = 0
@@ -63,53 +119,51 @@ def test_coverage_improvement():
     print("📱 Testing Elmätare 5-1005 (PowerMeter)...")
 
     # Test RawData endpoint for this device
-    response = requests.post(
-        f"{BASE_URL}/RawData",
-        json={"ApiKey": API_KEY, "DeviceId": 10876},
-        headers={"Content-Type": "application/json"},
+    success, data, error = test_api_request(
+        f"{BASE_URL}/RawData", 10876, "Elmätare 5-1005"
     )
 
-    if response.status_code == 200:
-        data = response.json()
-        if data.get("Data") and data["Data"].get("Values"):
-            values = data["Data"]["Values"]
-            print(f"  📊 Found {len(values)} RawData sensors:")
+    if success and data and data.get("Data") and data["Data"].get("Values"):
+        values = data["Data"]["Values"]
+        print(f"  📊 Found {len(values)} RawData sensors:")
 
-            for value in values:
-                sensor_name = value.get("Name", "unknown")
-                total_sensors += 1
+        for value in values:
+            sensor_name = value.get("Name", "unknown")
+            total_sensors += 1
 
-                if sensor_name in NEW_MAPPINGS:
-                    newly_mapped += 1
-                    print(f"    ✅ {sensor_name}: NOW MAPPED")
-                else:
-                    still_missing.append(sensor_name)
-                    print(f"    ❌ {sensor_name}: still missing")
+            if sensor_name in NEW_MAPPINGS:
+                newly_mapped += 1
+                print(f"    ✅ {sensor_name}: NOW MAPPED")
+            else:
+                still_missing.append(sensor_name)
+                print(f"    ❌ {sensor_name}: still missing")
+    elif error:
+        print(f"  ❌ Failed to get data: {error}")
+    else:
+        print("  ⚠️  No sensor data found")
 
     # Test Laddbox device (86812)
     print("\n📱 Testing Laddbox #49 (PowerMeter)...")
-    response = requests.post(
-        f"{BASE_URL}/RawData",
-        json={"ApiKey": API_KEY, "DeviceId": 86812},
-        headers={"Content-Type": "application/json"},
-    )
+    success, data, error = test_api_request(f"{BASE_URL}/RawData", 86812, "Laddbox #49")
 
-    if response.status_code == 200:
-        data = response.json()
-        if data.get("Data") and data["Data"].get("Values"):
-            values = data["Data"]["Values"]
-            print(f"  📊 Found {len(values)} RawData sensors:")
+    if success and data and data.get("Data") and data["Data"].get("Values"):
+        values = data["Data"]["Values"]
+        print(f"  📊 Found {len(values)} RawData sensors:")
 
-            for value in values:
-                sensor_name = value.get("Name", "unknown")
-                total_sensors += 1
+        for value in values:
+            sensor_name = value.get("Name", "unknown")
+            total_sensors += 1
 
-                if sensor_name in NEW_MAPPINGS:
-                    newly_mapped += 1
-                    print(f"    ✅ {sensor_name}: NOW MAPPED")
-                else:
-                    still_missing.append(sensor_name)
-                    print(f"    ❌ {sensor_name}: still missing")
+            if sensor_name in NEW_MAPPINGS:
+                newly_mapped += 1
+                print(f"    ✅ {sensor_name}: NOW MAPPED")
+            else:
+                still_missing.append(sensor_name)
+                print(f"    ❌ {sensor_name}: still missing")
+    elif error:
+        print(f"  ❌ Failed to get data: {error}")
+    else:
+        print("  ⚠️  No sensor data found")
 
     # Quick summary
     print(f"\n📊 Coverage Improvement Summary:")
