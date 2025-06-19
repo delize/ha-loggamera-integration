@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.9.1] - 2025-06-19
+
+### Patch Release
+- Add Data GAP Sensor and logging for API response issues (#62) by @delize
+
+
 ## [0.9.0] - 2025-06-19
 
 ### Minor Release
