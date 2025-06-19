@@ -1470,10 +1470,86 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
         # Handle organization device sensor
         if self.is_organization:
-            # For organization sensors, return live device count
+            # For organization sensors, calculate values dynamically
             if self.sensor_name == "device_count":
                 devices = self.coordinator.data.get("devices", [])
                 return len(devices)
+            elif self.sensor_name == "organization_count":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                return len(organizations_data)
+            elif self.sensor_name == "child_organizations":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                if self.api.organization_id and organizations_data:
+                    child_orgs_count = len(
+                        [
+                            org
+                            for org in organizations_data
+                            if org.get("ParentId") == self.api.organization_id
+                        ]
+                    )
+                    return child_orgs_count
+                return 0
+            elif self.sensor_name == "parent_organization":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                if self.api.organization_id and organizations_data:
+                    current_org = next(
+                        (
+                            org
+                            for org in organizations_data
+                            if org["Id"] == self.api.organization_id
+                        ),
+                        None,
+                    )
+                    if current_org and current_org.get("ParentId", 0) != 0:
+                        parent_org = next(
+                            (
+                                org
+                                for org in organizations_data
+                                if org["Id"] == current_org["ParentId"]
+                            ),
+                            None,
+                        )
+                        if parent_org:
+                            return parent_org["Name"]
+                return "None"
+            elif self.sensor_name == "user_count":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                if self.api.organization_id and organizations_data:
+                    current_org = next(
+                        (
+                            org
+                            for org in organizations_data
+                            if org["Id"] == self.api.organization_id
+                        ),
+                        None,
+                    )
+                    if current_org:
+                        user_count = current_org.get(
+                            "UserCount", current_org.get("Users", 0)
+                        )
+                        if isinstance(current_org.get("UserList"), list):
+                            user_count = len(current_org["UserList"])
+                        return user_count
+                return 0
+            elif self.sensor_name == "member_count":
+                organizations_data = self.coordinator.data.get("organizations", [])
+                if self.api.organization_id and organizations_data:
+                    current_org = next(
+                        (
+                            org
+                            for org in organizations_data
+                            if org["Id"] == self.api.organization_id
+                        ),
+                        None,
+                    )
+                    if current_org:
+                        member_count = current_org.get(
+                            "MemberCount", current_org.get("Members", 0)
+                        )
+                        if isinstance(current_org.get("MemberList"), list):
+                            member_count = len(current_org["MemberList"])
+                        return member_count
+                return 0
             return None
 
         # Determine which data source to use based on sensor type
