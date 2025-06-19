@@ -35,7 +35,7 @@ jobs:
       - name: Check code formatting with Black
         id: black-check
         run: |
-          if ! black --check --diff custom_components/; then
+          if ! black --check --diff --line-length=100 custom_components/; then
             echo "BLACK_FAILED=true" >> $GITHUB_OUTPUT
             echo "❌ Black formatting issues found" >> $GITHUB_STEP_SUMMARY
             exit 1
@@ -46,7 +46,7 @@ jobs:
       - name: Check import sorting with isort
         id: isort-check
         run: |
-          if ! isort --check-only --diff custom_components/; then
+          if ! isort --check-only --diff --line-length=100 custom_components/; then
             echo "ISORT_FAILED=true" >> $GITHUB_OUTPUT
             echo "❌ Import sorting issues found" >> $GITHUB_STEP_SUMMARY
             exit 1

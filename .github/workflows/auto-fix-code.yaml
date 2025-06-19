@@ -165,12 +165,12 @@ jobs:
       - name: Run Black formatter
         run: |
           echo "🔧 Running Black formatter..."
-          black custom_components/ --line-length=88
+          black custom_components/ --line-length=100
 
       - name: Run isort
         run: |
           echo "🔧 Running isort..."
-          isort custom_components/ --profile=black --line-length=88
+          isort custom_components/ --profile=black --line-length=100
 
       - name: Check if changes were made
         id: check-changes
