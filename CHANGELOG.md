@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## [0.8.0] - 2025-06-19
+
+### Minor Release
+- Comprehensive update: enhanced documentation, diagnostics, and security (#60) by @delize
+
+
 ## [0.7.3] - 2025-06-17
 
 ### Patch Release
