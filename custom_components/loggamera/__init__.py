@@ -248,6 +248,23 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Calculate time taken for the update
             elapsed = time.time() - start_time
+
+            # Report API health status and data gaps
+            try:
+                gap_status = self.api.get_data_gap_status()
+                devices_with_gaps = gap_status.get("devices_with_gaps", 0)
+                total_devices = gap_status.get("total_devices_tracked", 0)
+
+                if devices_with_gaps > 0:
+                    _LOGGER.warning(
+                        f"Data gaps detected: {devices_with_gaps}/{total_devices} devices affected."
+                        f"Check 'Loggamera API Health' binary sensor for details."
+                    )
+                else:
+                    _LOGGER.debug(f"All {total_devices} devices reporting data successfully.")
+            except Exception as health_err:
+                _LOGGER.debug(f"Could not check API health status: {health_err}")
+
             _LOGGER.debug(
                 f"Finished fetching loggamera data in {elapsed:.3f} seconds (success: {True})"  # noqa: E501
             )

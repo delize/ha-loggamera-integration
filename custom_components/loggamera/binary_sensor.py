@@ -56,6 +56,14 @@ async def async_setup_entry(
                     )
                 )
 
+    # Always add API health diagnostic sensor
+    binary_sensors.append(
+        LoggameraAPIHealthSensor(
+            coordinator=coordinator,
+            api=api,
+        )
+    )
+
     if binary_sensors:
         async_add_entities(binary_sensors)
         _LOGGER.info(f"Adding {len(binary_sensors)} Loggamera binary sensors")
@@ -133,3 +141,99 @@ class LoggameraBinarySensor(CoordinatorEntity, BinarySensorEntity):
             attrs["last_update"] = self._last_update
 
         return attrs
+
+
+class LoggameraAPIHealthSensor(CoordinatorEntity, BinarySensorEntity):
+    """Diagnostic sensor that tracks API health and data gaps."""
+
+    def __init__(self, coordinator, api):
+        """Initialize the API health sensor."""
+        super().__init__(coordinator)
+        self.api = api
+
+        # Entity attributes
+        self._attr_unique_id = "loggamera_api_health"
+        self._attr_name = "Loggamera API Health"
+        self._attr_device_class = BinarySensorDeviceClass.PROBLEM
+        self._attr_icon = "mdi:api"
+
+        # Device info for integration
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, "loggamera_integration")},
+            "name": "Loggamera Integration",
+            "manufacturer": "Loggamera",
+            "model": "API Client",
+        }
+
+    @property
+    def is_on(self):
+        """Return true if there are API health issues (data gaps)."""
+        try:
+            # Get data gap status from API client
+            gap_status = self.api.get_data_gap_status()
+
+            # Sensor is "on" (problem state) if there are active data gaps
+            return gap_status.get("devices_with_gaps", 0) > 0
+        except Exception as err:
+            _LOGGER.error(f"Error getting API health status: {err}")
+            return False
+
+    @property
+    def extra_state_attributes(self) -> Optional[Dict[str, Any]]:
+        """Return detailed API health information."""
+        try:
+            gap_status = self.api.get_data_gap_status()
+
+            attrs = {
+                "devices_with_gaps": gap_status.get("devices_with_gaps", 0),
+                "total_devices_tracked": gap_status.get("total_devices_tracked", 0),
+                "last_update": (
+                    self.coordinator.last_update_time.isoformat()
+                    if self.coordinator.last_update_time
+                    else None
+                ),
+            }
+
+            # Add details for devices with active gaps
+            devices_with_gaps = []
+            for device_id, device_status in gap_status.get("devices", {}).items():
+                if device_status.get("has_active_gap", False):
+                    device_info = {
+                        "device_id": device_id,
+                        "gap_duration_minutes": device_status.get("gap_duration_minutes", 0),
+                        "consecutive_failures": device_status.get("consecutive_failures", 0),
+                        "endpoint": device_status.get("endpoint", "unknown"),
+                        "total_gaps": device_status.get("total_gaps", 0),
+                    }
+                    devices_with_gaps.append(device_info)
+
+            if devices_with_gaps:
+                attrs["affected_devices"] = devices_with_gaps
+
+            # Add summary statistics
+            if gap_status.get("devices"):
+                total_gaps = sum(
+                    device.get("total_gaps", 0) for device in gap_status["devices"].values()
+                )
+                attrs["total_gaps_all_devices"] = total_gaps
+
+                # Find device with longest gap
+                max_gap_device = None
+                max_gap_duration = 0
+                for device_id, device_status in gap_status["devices"].items():
+                    gap_duration = device_status.get("gap_duration_minutes", 0)
+                    if gap_duration > max_gap_duration:
+                        max_gap_duration = gap_duration
+                        max_gap_device = device_id
+
+                if max_gap_device:
+                    attrs["longest_gap_device"] = max_gap_device
+                    attrs["longest_gap_minutes"] = max_gap_duration
+
+            return attrs
+        except Exception as err:
+            _LOGGER.error(f"Error getting API health attributes: {err}")
+            return {
+                "error": str(err),
+                "last_update": None,
+            }

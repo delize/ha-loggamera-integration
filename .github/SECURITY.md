@@ -31,12 +31,33 @@ This repository uses automated GitHub Actions workflows with built-in security c
 
 ### 📞 Reporting Security Issues
 
-If you discover a security vulnerability in our workflows or code:
+#### Loggamera API Security Issues
+
+**For security issues related to the Loggamera Platform API itself** (authentication, data exposure, API vulnerabilities), please report directly to **Loggamera**:
+
+- **Contact**: Loggamera support or security team
+- **Scope**: API endpoints, authentication mechanisms, data handling on Loggamera's servers
+- **Examples**:
+  - API authentication bypass
+  - Data exposure in API responses
+  - Server-side vulnerabilities in Loggamera infrastructure
+
+**Note**: This integration is a client that connects to Loggamera's API. Security issues with the API service itself are outside the scope of this integration and should be addressed by Loggamera directly.
+
+#### Home Assistant Integration Security Issues
+
+**For security issues specific to this Home Assistant integration** (workflows, code, configuration), please follow the procedure below:
 
 1. **DO NOT** create a public issue
 2. Email the repository maintainers directly
 3. Include details about the vulnerability and potential impact
 4. Allow time for the issue to be addressed before public disclosure
+
+**Integration security scope**:
+- Integration code vulnerabilities
+- Local data exposure in Home Assistant
+- Workflow security issues
+- Configuration security problems
 
 ### 🔧 Workflow Security Best Practices
 

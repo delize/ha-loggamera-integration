@@ -146,6 +146,9 @@ class LoggameraAPI:
         # Keep track of last data timestamp to log changes
         self._last_data_timestamp = {}
 
+        # Track data gaps for enhanced reporting
+        self._data_gap_tracker = {}  # device_id -> {gap_start, gap_count, last_successful}
+
         # Retry and circuit breaker configuration
         self.retry_config = RetryConfig()
         self.circuit_breakers = {}  # Per-endpoint circuit breakers
@@ -404,12 +407,137 @@ class LoggameraAPI:
         Returns:
             True if response contains valid data values
         """
-        return (
+        has_data = (
             "Data" in response
             and response["Data"] is not None
             and "Values" in response["Data"]
             and response["Data"]["Values"]
         )
+
+        # Enhanced logging for data gap investigation
+        if not has_data:
+            current_time = datetime.now().isoformat()
+            if "Data" not in response:
+                _LOGGER.warning(
+                    f"API response missing 'Data' field at {current_time}. "
+                    f"Full response: {response}"
+                )
+            elif response["Data"] is None:
+                _LOGGER.warning(
+                    f"API returned null 'Data' field at {current_time}. "
+                    f"This may indicate server-side processing issues."
+                )
+            elif "Values" not in response["Data"]:
+                _LOGGER.warning(
+                    f"API response 'Data' missing 'Values' field at {current_time}. "
+                    f"Data structure: {response['Data']}"
+                )
+            elif not response["Data"]["Values"]:
+                _LOGGER.warning(
+                    f"API returned empty 'Values' array at {current_time}. "
+                    f"This indicates a data gap - investigating timing patterns. "
+                    f"Data structure: {response['Data']}"
+                )
+
+        return has_data
+
+    def _track_data_gap(self, device_id: int, has_data: bool, endpoint: str = "unknown") -> None:
+        """Track data gaps for a specific device to enable better reporting.
+
+        Args:
+            device_id: Device ID being tracked
+            has_data: Whether the API returned valid data
+            endpoint: Which endpoint was used for context
+        """
+        current_time = time.time()
+        device_key = str(device_id)
+
+        if device_key not in self._data_gap_tracker:
+            self._data_gap_tracker[device_key] = {
+                "gap_start": None,
+                "gap_count": 0,
+                "last_successful": current_time if has_data else None,
+                "consecutive_failures": 0,
+                "endpoint": endpoint,
+            }
+
+        tracker = self._data_gap_tracker[device_key]
+
+        if has_data:
+            # Data received successfully
+            if tracker["gap_start"] is not None:
+                # End of a data gap
+                gap_duration = current_time - tracker["gap_start"]
+                gap_minutes = int(gap_duration / 60)
+                _LOGGER.warning(
+                    f"Data gap ended for device {device_id}. "
+                    f"Gap lasted {gap_minutes} minutes "
+                    f"({tracker['consecutive_failures']} failed attempts). "
+                    f"Endpoint: {endpoint}"
+                )
+                tracker["gap_start"] = None
+                tracker["consecutive_failures"] = 0
+
+            tracker["last_successful"] = current_time
+            tracker["endpoint"] = endpoint
+        else:
+            # No data received
+            tracker["consecutive_failures"] += 1
+
+            if tracker["gap_start"] is None:
+                # Start of a new data gap
+                tracker["gap_start"] = current_time
+                tracker["gap_count"] += 1
+                _LOGGER.warning(
+                    f"Data gap started for device {device_id} at {datetime.now().isoformat()}. "
+                    f"This is gap #{tracker['gap_count']} for this device. "
+                    f"Endpoint: {endpoint}"
+                )
+            elif tracker["consecutive_failures"] % 5 == 0:
+                # Log every 5th consecutive failure during a gap
+                gap_duration = current_time - tracker["gap_start"]
+                gap_minutes = int(gap_duration / 60)
+                _LOGGER.error(
+                    f"Ongoing data gap for device {device_id}: {gap_minutes} minutes, "
+                    f"{tracker['consecutive_failures']} consecutive failures. "
+                    f"Endpoint: {endpoint}"
+                )
+
+    def get_data_gap_status(self) -> Dict[str, Any]:
+        """Get current data gap status for all tracked devices.
+
+        Returns:
+            Dictionary with data gap information for monitoring/diagnostics
+        """
+        current_time = time.time()
+        status = {
+            "devices_with_gaps": 0,
+            "total_devices_tracked": len(self._data_gap_tracker),
+            "devices": {},
+        }
+
+        for device_id, tracker in self._data_gap_tracker.items():
+            device_status = {
+                "has_active_gap": tracker["gap_start"] is not None,
+                "total_gaps": tracker["gap_count"],
+                "consecutive_failures": tracker["consecutive_failures"],
+                "last_successful": tracker["last_successful"],
+                "endpoint": tracker.get("endpoint", "unknown"),
+            }
+
+            if tracker["gap_start"]:
+                device_status["gap_duration_minutes"] = int(
+                    (current_time - tracker["gap_start"]) / 60
+                )
+                status["devices_with_gaps"] += 1
+            elif tracker["last_successful"]:
+                device_status["minutes_since_last_success"] = int(
+                    (current_time - tracker["last_successful"]) / 60
+                )
+
+            status["devices"][device_id] = device_status
+
+        return status
 
     def _get_primary_endpoint_for_device(  # noqa: C901
         self, device_id: int, device_type: str
@@ -462,7 +590,10 @@ class LoggameraAPI:
                         and response["Error"]["Message"] == "invalid endpoint"
                     ):
                         # Check if we got valid data
-                        if self._has_valid_data(response):
+                        has_data = self._has_valid_data(response)
+                        self._track_data_gap(device_id, has_data, primary_endpoint)
+
+                        if has_data:
                             # Add endpoint info for debugging/tracking
                             response["_endpoint_used"] = primary_endpoint
                             return response
@@ -492,7 +623,10 @@ class LoggameraAPI:
                     continue
 
                 # Check if we got valid data
-                if self._has_valid_data(response):
+                has_data = self._has_valid_data(response)
+                self._track_data_gap(device_id, has_data, endpoint)
+
+                if has_data:
                     # Add endpoint info for debugging/tracking
                     response["_endpoint_used"] = endpoint
                     return response
@@ -502,6 +636,7 @@ class LoggameraAPI:
                 continue
 
         # If we get here, all endpoints failed
+        self._track_data_gap(device_id, False, "all_endpoints_failed")
         raise LoggameraAPIError(f"All endpoints failed for device {device_id}")
 
     def get_device_data(self, device_id: Union[str, int], device_type: str) -> Dict[str, Any]:
