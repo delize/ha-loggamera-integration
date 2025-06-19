@@ -188,8 +188,9 @@ class LoggameraAPIHealthSensor(CoordinatorEntity, BinarySensorEntity):
                 "devices_with_gaps": gap_status.get("devices_with_gaps", 0),
                 "total_devices_tracked": gap_status.get("total_devices_tracked", 0),
                 "last_update": (
-                    self.coordinator.last_update_success.isoformat()
-                    if self.coordinator.last_update_success
+                    self.coordinator.last_update_success_time.isoformat()
+                    if hasattr(self.coordinator, "last_update_success_time")
+                    and self.coordinator.last_update_success_time
                     else None
                 ),
             }
