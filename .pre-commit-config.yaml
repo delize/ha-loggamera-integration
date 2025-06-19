@@ -6,21 +6,22 @@ repos:
     hooks:
       - id: black
         language_version: python3
-        args: [--line-length=88]
+        args: [--line-length=100]
 
   # Import sorting
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
-        args: [--profile=black, --line-length=88]
+        args: [--profile=black, --line-length=100]
 
   # Python linting
   - repo: https://github.com/pycqa/flake8
     rev: 7.0.0
     hooks:
       - id: flake8
-        exclude: ^(tests/|tools/)
+        args: [--count, --max-complexity=10, --max-line-length=100, --statistics]
+        files: ^custom_components/
 
   # General file cleanup
   - repo: https://github.com/pre-commit/pre-commit-hooks

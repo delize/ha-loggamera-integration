@@ -1,0 +1,150 @@
+name: Bug Report
+description: Report a bug to help us improve the Loggamera integration
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the sections below to help us reproduce and fix the issue.
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device Type
+      description: What type of device is affected?
+      options:
+        - PowerMeter
+        - RoomSensor
+        - WaterMeter
+        - HeatMeter
+        - HeatPump
+        - ChargingStation
+        - CoolingUnit
+        - Organization sensors
+        - Multiple device types
+        - Other/Unknown
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant Version
+      description: Your Home Assistant version
+      placeholder: "2024.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration Version
+      description: Loggamera integration version (check HACS or manifest.json)
+      placeholder: "0.1.23"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation-method
+    attributes:
+      label: Installation Method
+      options:
+        - HACS
+        - Manual installation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Home Assistant Logs
+      description: |
+        Paste relevant logs with debug logging enabled:
+        ```yaml
+        logger:
+          default: warning
+          logs:
+            custom_components.loggamera: debug
+        ```
+      placeholder: Paste logs here...
+      render: shell
+
+  - type: textarea
+    id: diagnostic-output
+    attributes:
+      label: Required Diagnostic Output
+      description: |
+        **REQUIRED**: Run these diagnostic tools and paste the output (replace sensitive data with placeholders):
+
+        **For all issues:**
+        ```bash
+        python tools/loggamera_diagnostic.py YOUR_API_KEY --verbose
+        ```
+
+        **For device/sensor issues:**
+        ```bash
+        python tools/organization_mapper.py YOUR_API_KEY --format json
+        python tools/validate_sensor_mappings.py
+        ```
+
+        **For specific device problems:**
+        ```bash
+        python tools/analyze_power_meter.py YOUR_API_KEY DEVICE_ID
+        python tools/test_heatmeter_api.py  # for HeatMeter issues
+        ```
+      placeholder: Paste diagnostic tool output here...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-response
+    attributes:
+      label: Raw API Response (if applicable)
+      description: |
+        If the issue involves specific API responses, provide the raw JSON output:
+        ```bash
+        python tools/loggamera_api_explorer.py YOUR_API_KEY ENDPOINT --device-id DEVICE_ID
+        ```
+        **Remove sensitive data (API keys, org IDs, device names)**
+      placeholder: Paste raw API response here...
+      render: json
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or information about the problem
+      placeholder: Any additional information...

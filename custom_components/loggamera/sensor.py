@@ -4,11 +4,7 @@ import logging
 from datetime import datetime  # noqa: F401
 from typing import Any, Dict, List, Optional  # noqa: F401
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
@@ -65,12 +61,55 @@ SENSOR_MAP = {
         "name": "Alarm Context",
         "icon": "mdi:alert-box",
     },
+    # Organization sensors
     "device_count": {
         "device_class": None,
         "unit": None,
         "state_class": None,
         "name": "Total Device Count",
         "icon": "mdi:counter",
+    },
+    "organization_count": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Total Organization Count",
+        "icon": "mdi:domain",
+    },
+    "parent_organization": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Parent Organization ID",
+        "icon": "mdi:account-supervisor",
+    },
+    "child_organizations": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Child Organization Count",
+        "icon": "mdi:account-group",
+    },
+    "user_count": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "User Count",
+        "icon": "mdi:account",
+    },
+    "member_count": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Member Count",
+        "icon": "mdi:account-multiple",
+    },
+    "is_parent_organization": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Is Parent Organization",
+        "icon": "mdi:account-supervisor-circle",
     },
     # RawData specific values - these are the most common ones
     "544352": {
@@ -276,6 +315,278 @@ SENSOR_MAP = {
         "state_class": SensorStateClass.MEASUREMENT,
         "name": "Power Phase 3",
     },  # Power phase 3
+    # HeatMeter RawData sensors
+    "544310": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Energy",
+    },
+    "544311": {
+        "device_class": None,
+        "unit": UnitOfVolume.CUBIC_METERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Volume",
+    },
+    "544320": {
+        "device_class": None,
+        "unit": "m³/h",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Flow Rate",
+    },
+    "544321": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Flow Temperature",
+    },
+    "544322": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Return Temperature",
+    },
+    "544323": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Temperature Difference",
+    },
+    "544324": {
+        "device_class": None,
+        "unit": None,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Error Code",
+        "icon": "mdi:alert-circle-outline",
+    },
+    # ChargingStation voltage sensors - corrects API misspelling "Voltate"
+    "544426": {
+        "device_class": SensorDeviceClass.VOLTAGE,
+        "unit": UnitOfElectricPotential.VOLT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Voltage Phase 1",  # API says "Voltate (Phase 1)" - corrected
+    },
+    "544427": {
+        "device_class": SensorDeviceClass.VOLTAGE,
+        "unit": UnitOfElectricPotential.VOLT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Voltage Phase 2",  # API says "Voltate (Phase 2)" - corrected
+    },
+    "544428": {
+        "device_class": SensorDeviceClass.VOLTAGE,
+        "unit": UnitOfElectricPotential.VOLT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Voltage Phase 3",  # API says "Voltate (Phase 3)" - corrected
+    },
+    # RoomSensor signal quality - corrects API misspelling "Signal-Noice"
+    "543837": {
+        "device_class": None,
+        "unit": "dB",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Signal to Noise Ratio",  # API says "Signal-Noice relation (Snr)" - corrected
+        "icon": "mdi:signal",
+    },
+    # PowerMeter RawData sensors (additional)
+    "543817": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Energy",
+    },
+    "543801": {
+        "device_class": SensorDeviceClass.POWER,
+        "unit": UnitOfPower.WATT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Power Average",
+    },
+    "543802": {
+        "device_class": SensorDeviceClass.VOLTAGE,
+        "unit": UnitOfElectricPotential.VOLT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Voltage",
+    },
+    "543803": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 1",
+    },
+    "543804": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 2",
+    },
+    "543805": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 3",
+    },
+    "543842": {
+        "device_class": SensorDeviceClass.POWER,
+        "unit": UnitOfPower.WATT,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Power Peak",
+    },
+    "543821": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Consumption Interval",
+    },
+    # ChargingStation RawData sensors
+    "544424": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Total Consumption",
+    },
+    "544434": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Session Consumption",
+    },
+    "544429": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 1",
+    },
+    "544430": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 2",
+    },
+    "544431": {
+        "device_class": SensorDeviceClass.CURRENT,
+        "unit": UnitOfElectricCurrent.AMPERE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Phase 3",
+    },
+    "544425": {
+        "device_class": SensorDeviceClass.ENERGY,
+        "unit": UnitOfEnergy.KILO_WATT_HOUR,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Consumption Interval",
+    },
+    "544432": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Charging State",
+        "icon": "mdi:ev-station",
+    },
+    "544443": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Load Balanced",
+        "icon": "mdi:scale-balance",
+    },
+    "544441": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Firmware Version",
+        "icon": "mdi:chip",
+    },
+    "544442": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Hardware Version",
+        "icon": "mdi:chip",
+    },
+    "544436": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Status Code A",
+        "icon": "mdi:information",
+    },
+    "544437": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Status Code B",
+        "icon": "mdi:information",
+    },
+    # RoomSensor RawData sensors
+    "543700": {
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Temperature",
+    },
+    "543701": {
+        "device_class": SensorDeviceClass.HUMIDITY,
+        "unit": PERCENTAGE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Humidity",
+    },
+    "543709": {
+        "device_class": SensorDeviceClass.BATTERY,
+        "unit": PERCENTAGE,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Battery",
+    },
+    "543836": {
+        "device_class": SensorDeviceClass.SIGNAL_STRENGTH,
+        "unit": "dBm",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Signal Strength RSSI",
+        "icon": "mdi:wifi",
+    },
+    "543838": {
+        "device_class": None,
+        "unit": None,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Spreading Factor",
+        "icon": "mdi:radio-tower",
+    },
+    # WaterMeter RawData sensors
+    "422568": {
+        "device_class": None,
+        "unit": UnitOfVolume.CUBIC_METERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Meter Value",
+    },
+    "542175": {
+        "device_class": SensorDeviceClass.WATER,
+        "unit": UnitOfVolume.LITERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Consumption Since Midnight",
+    },
+    "542176": {
+        "device_class": None,
+        "unit": "L/min",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "name": "Current Flow",
+    },
+    "544316": {
+        "device_class": SensorDeviceClass.WATER,
+        "unit": UnitOfVolume.LITERS,
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "name": "Consumption Interval",
+    },
+    # Generic Device alarm sensors (available on all devices)
+    "alarmCodeNumber": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Alarm Code Number",
+        "icon": "mdi:numeric",
+    },
+    "alarmClassification": {
+        "device_class": None,
+        "unit": None,
+        "state_class": None,
+        "name": "Alarm Classification",
+        "icon": "mdi:alert-decagram",
+    },
 }
 
 # Temperature sensor mappings
@@ -368,9 +679,7 @@ async def async_setup_entry(  # noqa: C901
             data_sources.append("GenericDevice")
 
         if data_sources:
-            _LOGGER.debug(
-                f"Device {device_name} data sources: {', '.join(data_sources)}"
-            )
+            _LOGGER.debug(f"Device {device_name} data sources: {', '.join(data_sources)}")
 
         if "Values" in device_data["Data"]:
             values = device_data["Data"]["Values"]
@@ -457,22 +766,15 @@ async def async_setup_entry(  # noqa: C901
         raw_data_key = f"rawdata_{device_id}"
         raw_data = coordinator.data.get("device_data", {}).get(raw_data_key)
 
-        if (
-            raw_data
-            and "Data" in raw_data
-            and raw_data["Data"]
-            and "Values" in raw_data["Data"]
-        ):
+        if raw_data and "Data" in raw_data and raw_data["Data"] and "Values" in raw_data["Data"]:
             _LOGGER.debug(
-                f"Processing {len(raw_data['Data']['Values'])} RawData values "
-                f"for {device_name}"
+                f"Processing {len(raw_data['Data']['Values'])} RawData values " f"for {device_name}"
             )
 
             for value in raw_data["Data"]["Values"]:
                 # Create unique ID to avoid conflicts with processed sensors
                 unique_id = (
-                    f"rawdata_{device_id}_{device_type.lower()}_"
-                    f"{value.get('Name', 'unknown')}"
+                    f"rawdata_{device_id}_{device_type.lower()}_" f"{value.get('Name', 'unknown')}"
                 )
 
                 if unique_id not in processed_unique_ids:
@@ -489,11 +791,9 @@ async def async_setup_entry(  # noqa: C901
                     )
                     entities.append(entity)
                     processed_unique_ids.add(unique_id)
-                    _LOGGER.debug(
-                        f"Created RawData sensor: {entity.name} (disabled by default)"
-                    )
+                    _LOGGER.debug(f"Created RawData sensor: {entity.name} (disabled by default)")
 
-    # Create organization-level device with device count sensor
+    # Create organization-level sensors
     if coordinator.data.get("devices"):
         device_count = len(coordinator.data["devices"])
         organization_name = (
@@ -501,29 +801,112 @@ async def async_setup_entry(  # noqa: C901
             if api.organization_id
             else "Loggamera Organization"
         )
-        # Create organization device count sensor
-        org_value_data = {
-            "Name": "device_count",
-            "Value": device_count,
-            "UnitType": "Count",
-            "UnitPresentation": "",
-            "ValueType": "INTEGER",
-            "ClearTextName": "Total Device Count",
-        }
-        org_entity = LoggameraSensor(
-            coordinator=coordinator,
-            api=api,
-            device_id="organization",
-            device_type="Organization",
-            device_name=organization_name,
-            value_data=org_value_data,
-            hass=hass,
-            is_organization=True,
-        )
-        entities.append(org_entity)
-        _LOGGER.debug(
-            f"Created organization sensor: {org_entity.name} with {device_count} devices"  # noqa: E501
-        )
+
+        # Get organization data for enhanced sensors
+        organizations_data = coordinator.data.get("organizations", [])
+        current_org = None
+        child_orgs_count = 0
+        total_orgs_count = len(organizations_data)
+        parent_org_name = "None"
+        user_count = 0
+        member_count = 0
+
+        if api.organization_id and organizations_data:
+            # Find current organization
+            current_org = next(
+                (org for org in organizations_data if org["Id"] == api.organization_id),
+                None,
+            )
+            if current_org:
+                # Count child organizations
+                child_orgs_count = len(
+                    [
+                        org
+                        for org in organizations_data
+                        if org.get("ParentId") == api.organization_id
+                    ]
+                )
+                # Find parent organization name
+                if current_org.get("ParentId", 0) != 0:
+                    parent_org = next(
+                        (org for org in organizations_data if org["Id"] == current_org["ParentId"]),
+                        None,
+                    )
+                    if parent_org:
+                        parent_org_name = parent_org["Name"]
+
+                # Future-ready: Check for user/member data in API response
+                # These fields don't exist yet but will be used automatically when API provides them
+                user_count = current_org.get("UserCount", current_org.get("Users", 0))
+                member_count = current_org.get("MemberCount", current_org.get("Members", 0))
+
+                # Also check for alternative field names the API might use
+                if isinstance(current_org.get("UserList"), list):
+                    user_count = len(current_org["UserList"])
+                if isinstance(current_org.get("MemberList"), list):
+                    member_count = len(current_org["MemberList"])
+
+        # Create multiple organization sensors
+        org_sensors = [
+            {
+                "Name": "device_count",
+                "Value": device_count,
+                "ClearTextName": "Total Device Count",
+            },
+            {
+                "Name": "organization_count",
+                "Value": total_orgs_count,
+                "ClearTextName": "Total Organization Count",
+            },
+            {
+                "Name": "child_organizations",
+                "Value": child_orgs_count,
+                "ClearTextName": "Child Organization Count",
+            },
+            {
+                "Name": "parent_organization",
+                "Value": parent_org_name,
+                "ClearTextName": "Parent Organization ID",
+            },
+            {
+                "Name": "user_count",
+                "Value": user_count,  # Future-ready: will use API data when available
+                "ClearTextName": "User Count",
+            },
+            {
+                "Name": "member_count",
+                "Value": member_count,  # Future-ready: will use API data when available
+                "ClearTextName": "Member Count",
+            },
+            {
+                "Name": "is_parent_organization",
+                "Value": child_orgs_count > 0,  # True if this org has children (is a parent)
+                "ClearTextName": "Is Parent Organization",
+            },
+        ]
+
+        # Create organization sensors
+        for sensor_data in org_sensors:
+            org_value_data = {
+                **sensor_data,
+                "UnitType": ("Count" if isinstance(sensor_data["Value"], int) else "String"),
+                "UnitPresentation": "",
+                "ValueType": ("INTEGER" if isinstance(sensor_data["Value"], int) else "STRING"),
+            }
+            org_entity = LoggameraSensor(
+                coordinator=coordinator,
+                api=api,
+                device_id="organization",
+                device_type="Organization",
+                device_name=organization_name,
+                value_data=org_value_data,
+                hass=hass,
+                is_organization=True,
+            )
+            entities.append(org_entity)
+            _LOGGER.debug(
+                f"Created organization sensor: {org_entity.name} = {sensor_data['Value']}"
+            )
 
     if entities:
         async_add_entities(entities)
@@ -602,9 +985,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
         # Use friendly name if available, otherwise use ClearTextName or sensor name
         display_name = (
-            friendly_name
-            if friendly_name
-            else value_data.get("ClearTextName", self.sensor_name)
+            friendly_name if friendly_name else value_data.get("ClearTextName", self.sensor_name)
         )
 
         # Extract device identifier (part in parentheses) for display names
@@ -624,11 +1005,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             .replace(":", "")
         )
         clean_device_name = (
-            device_name.lower()
-            .replace(" ", "_")
-            .replace("(", "")
-            .replace(")", "")
-            .replace(":", "")
+            device_name.lower().replace(" ", "_").replace("(", "").replace(")", "").replace(":", "")
         )
 
         # Set entity naming based on device type
@@ -638,29 +1015,21 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             self._attr_name = display_name
         elif self.is_raw_data:
             # Use rawdata naming pattern: rawdata_{sensor}_{id}_{device}
-            self._attr_unique_id = (
-                f"rawdata_{clean_sensor_name}_{device_id}_{clean_device_name}"
-            )
+            self._attr_unique_id = f"rawdata_{clean_sensor_name}_{device_id}_{clean_device_name}"
 
             # Display name: "Energy Phase 3 - (D5 mätare: 99954807)"
             self._attr_name = (
-                f"{display_name} - {device_identifier}"
-                if device_identifier
-                else display_name
+                f"{display_name} - {device_identifier}" if device_identifier else display_name
             )
             # Disable RawData entities by default
             self._attr_entity_registry_enabled_default = False
         else:
             # Use standard naming pattern: loggamera_{sensor}_{id}_{device}
-            self._attr_unique_id = (
-                f"loggamera_{clean_sensor_name}_{device_id}_{clean_device_name}"
-            )
+            self._attr_unique_id = f"loggamera_{clean_sensor_name}_{device_id}_{clean_device_name}"
 
             # Display name: "Total Energy Consumption - (D5 mätare: 99954807)"
             self._attr_name = (
-                f"{display_name} - {device_identifier}"
-                if device_identifier
-                else display_name
+                f"{display_name} - {device_identifier}" if device_identifier else display_name
             )
 
         # Ensure consistent device ID format
@@ -678,9 +1047,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         # Determine device class, state class, and unit of measurement
         self._set_sensor_attributes()
 
-        _LOGGER.debug(
-            f"Initialized sensor: {self.name} with value: {value_data.get('Value')}"
-        )
+        _LOGGER.debug(f"Initialized sensor: {self.name} with value: {value_data.get('Value')}")
 
     def _parse_value(self, value):  # noqa: C901
         """Parse value to the correct type with proper sanitization."""
@@ -731,11 +1098,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             return bool(value)
 
         # If it's already a number, return it
-        if (
-            isinstance(value, (int, float))
-            and not self._is_boolean
-            and not self._is_string
-        ):
+        if isinstance(value, (int, float)) and not self._is_boolean and not self._is_string:
             return float(value)
 
         # For any other type, convert to string and sanitize
@@ -770,16 +1133,11 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.TEMPERATURE,
                     "unit": UnitOfTemperature.CELSIUS,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
             _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → TEMPERATURE "
-                f"(UnitType: {unit_type})"
+                f"Dynamic detection: {sensor_name} → TEMPERATURE " f"(UnitType: {unit_type})"
             )
 
         # Energy detection
@@ -790,36 +1148,24 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                 energy_word in clear_text_name
                 for energy_word in ["energy", "energi", "förbrukning"]
             )
-            or any(
-                energy_word in sensor_name
-                for energy_word in ["energy", "consumed", "total"]
-            )
+            or any(energy_word in sensor_name for energy_word in ["energy", "consumed", "total"])
         ):
             detected.update(
                 {
                     "device_class": SensorDeviceClass.ENERGY,
                     "unit": UnitOfEnergy.KILO_WATT_HOUR,
                     "state_class": SensorStateClass.TOTAL_INCREASING,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → ENERGY (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → ENERGY (UnitType: {unit_type})")
 
         # Power detection
         elif (
             unit_type in ["kw", "kilowatt", "w", "watt"]
             or "kw" in unit_presentation
             or "w" in unit_presentation
-            or any(
-                power_word in clear_text_name
-                for power_word in ["power", "effekt", "watt"]
-            )
+            or any(power_word in clear_text_name for power_word in ["power", "effekt", "watt"])
             or any(power_word in sensor_name for power_word in ["power", "watt"])
         ):
             # Determine if kilowatt or watt based on presentation
@@ -832,16 +1178,10 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.POWER,
                     "unit": unit,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → POWER (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → POWER (UnitType: {unit_type})")
 
         # Current detection
         elif (
@@ -854,38 +1194,22 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.CURRENT,
                     "unit": UnitOfElectricCurrent.AMPERE,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → CURRENT (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → CURRENT (UnitType: {unit_type})")
 
         # Voltage detection
-        elif (
-            unit_type in ["volt", "v"]
-            or "v" in unit_presentation
-            or "volt" in unit_presentation
-        ):
+        elif unit_type in ["volt", "v"] or "v" in unit_presentation or "volt" in unit_presentation:
             detected.update(
                 {
                     "device_class": SensorDeviceClass.VOLTAGE,
                     "unit": UnitOfElectricPotential.VOLT,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → VOLTAGE (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → VOLTAGE (UnitType: {unit_type})")
 
         # Water/Volume detection
         elif (
@@ -893,17 +1217,10 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             or "m³" in unit_presentation
             or "m3" in unit_presentation
             or "l" in unit_presentation
-            or any(
-                water_word in clear_text_name
-                for water_word in ["water", "vatten", "volume"]
-            )
+            or any(water_word in clear_text_name for water_word in ["water", "vatten", "volume"])
             or any(water_word in sensor_name for water_word in ["water", "consumed"])
         ):
-            if (
-                "m3" in unit_presentation
-                or "m³" in unit_presentation
-                or "cubicmeter" in unit_type
-            ):
+            if "m3" in unit_presentation or "m³" in unit_presentation or "cubicmeter" in unit_type:
                 unit = UnitOfVolume.CUBIC_METERS
             else:
                 unit = UnitOfVolume.LITERS
@@ -912,26 +1229,17 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.WATER,
                     "unit": unit,
                     "state_class": SensorStateClass.TOTAL_INCREASING,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → WATER (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → WATER (UnitType: {unit_type})")
 
         # Humidity detection
         elif (
             unit_type in ["percent", "percentage", "rh"]
             or "%" in unit_presentation
             or "rh" in unit_presentation
-            or any(
-                humidity_word in clear_text_name
-                for humidity_word in ["humidity", "fuktighet"]
-            )
+            or any(humidity_word in clear_text_name for humidity_word in ["humidity", "fuktighet"])
             or any(humidity_word in sensor_name for humidity_word in ["humidity", "rh"])
         ):
             detected.update(
@@ -939,43 +1247,26 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": SensorDeviceClass.HUMIDITY,
                     "unit": PERCENTAGE,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → HUMIDITY (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → HUMIDITY (UnitType: {unit_type})")
 
         # Boolean detection
         elif (
             unit_type in ["boolean", "booleanonoff", "booleanyesno"]
-            or any(
-                bool_word in clear_text_name
-                for bool_word in ["active", "on", "off", "alarm"]
-            )
-            or any(
-                bool_word in sensor_name for bool_word in ["active", "alarm", "status"]
-            )
+            or any(bool_word in clear_text_name for bool_word in ["active", "on", "off", "alarm"])
+            or any(bool_word in sensor_name for bool_word in ["active", "alarm", "status"])
         ):
             detected.update(
                 {
                     "device_class": None,
                     "unit": None,
                     "state_class": None,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
-            _LOGGER.debug(
-                f"Dynamic detection: {sensor_name} → BOOLEAN (UnitType: {unit_type})"
-            )
+            _LOGGER.debug(f"Dynamic detection: {sensor_name} → BOOLEAN (UnitType: {unit_type})")
 
         # Generic numeric fallback
         elif not self._is_boolean and not self._is_string:
@@ -986,11 +1277,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
                     "device_class": None,
                     "unit": unit,
                     "state_class": SensorStateClass.MEASUREMENT,
-                    "name": (
-                        clear_text_name.title()
-                        if clear_text_name
-                        else sensor_name.title()
-                    ),
+                    "name": (clear_text_name.title() if clear_text_name else sensor_name.title()),
                 }
             )
             _LOGGER.info(
@@ -1049,9 +1336,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         if not sensor_info:
             sensor_info = self._detect_sensor_attributes_dynamically()
             if sensor_info:
-                _LOGGER.info(
-                    f"Used dynamic detection for unknown sensor: {self.sensor_name}"
-                )
+                _LOGGER.info(f"Used dynamic detection for unknown sensor: {self.sensor_name}")
 
         # Set device class if available in mapping
         self._attr_device_class = sensor_info.get("device_class")
@@ -1065,6 +1350,87 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
         else:
             self._attr_native_unit_of_measurement = self._sensor_unit
 
+    def _get_organization_sensor_value(self):
+        """Get the value for organization sensors."""
+        if self.sensor_name == "device_count":
+            devices = self.coordinator.data.get("devices", [])
+            return len(devices)
+        elif self.sensor_name == "organization_count":
+            organizations_data = self.coordinator.data.get("organizations", [])
+            return len(organizations_data)
+        elif self.sensor_name == "child_organizations":
+            return self._get_child_organizations_count()
+        elif self.sensor_name == "parent_organization":
+            return self._get_parent_organization_name()
+        elif self.sensor_name == "user_count":
+            return self._get_user_count()
+        elif self.sensor_name == "member_count":
+            return self._get_member_count()
+        elif self.sensor_name == "is_parent_organization":
+            return self._get_child_organizations_count() > 0
+        return None
+
+    def _get_child_organizations_count(self):
+        """Get the count of child organizations."""
+        organizations_data = self.coordinator.data.get("organizations", [])
+        if self.api.organization_id and organizations_data:
+            child_orgs_count = len(
+                [
+                    org
+                    for org in organizations_data
+                    if org.get("ParentId") == self.api.organization_id
+                ]
+            )
+            return child_orgs_count
+        return 0
+
+    def _get_parent_organization_name(self):
+        """Get the parent organization name."""
+        organizations_data = self.coordinator.data.get("organizations", [])
+        if self.api.organization_id and organizations_data:
+            current_org = next(
+                (org for org in organizations_data if org["Id"] == self.api.organization_id),
+                None,
+            )
+            if current_org and current_org.get("ParentId", 0) != 0:
+                parent_org = next(
+                    (org for org in organizations_data if org["Id"] == current_org["ParentId"]),
+                    None,
+                )
+                if parent_org:
+                    return parent_org["Name"]
+        return "None"
+
+    def _get_user_count(self):
+        """Get the user count for the current organization."""
+        organizations_data = self.coordinator.data.get("organizations", [])
+        if self.api.organization_id and organizations_data:
+            current_org = next(
+                (org for org in organizations_data if org["Id"] == self.api.organization_id),
+                None,
+            )
+            if current_org:
+                user_count = current_org.get("UserCount", current_org.get("Users", 0))
+                if isinstance(current_org.get("UserList"), list):
+                    user_count = len(current_org["UserList"])
+                return user_count
+        return 0
+
+    def _get_member_count(self):
+        """Get the member count for the current organization."""
+        organizations_data = self.coordinator.data.get("organizations", [])
+        if self.api.organization_id and organizations_data:
+            current_org = next(
+                (org for org in organizations_data if org["Id"] == self.api.organization_id),
+                None,
+            )
+            if current_org:
+                member_count = current_org.get("MemberCount", current_org.get("Members", 0))
+                if isinstance(current_org.get("MemberList"), list):
+                    member_count = len(current_org["MemberList"])
+                return member_count
+        return 0
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
@@ -1074,11 +1440,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
 
         # Handle organization device sensor
         if self.is_organization:
-            # For organization sensors, return live device count
-            if self.sensor_name == "device_count":
-                devices = self.coordinator.data.get("devices", [])
-                return len(devices)
-            return None
+            return self._get_organization_sensor_value()
 
         # Determine which data source to use based on sensor type
         if self.is_raw_data:
@@ -1093,11 +1455,7 @@ class LoggameraSensor(CoordinatorEntity, SensorEntity):
             # Try string version of data_key as fallback
             device_data = self.coordinator.data["device_data"].get(str(data_key))
 
-        if (
-            not device_data
-            or "Data" not in device_data
-            or "Values" not in device_data["Data"]
-        ):
+        if not device_data or "Data" not in device_data or "Values" not in device_data["Data"]:
             return None
 
         # Find our specific sensor value in the latest data

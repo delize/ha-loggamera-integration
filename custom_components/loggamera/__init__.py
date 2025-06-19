@@ -1,10 +1,12 @@
 """The Loggamera integration."""
 
+import json
 import logging
 import time
 from datetime import timedelta
 from typing import Any, Dict
 
+import aiofiles
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -40,14 +42,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Loggamera from a config entry."""
     try:
         # Log integration version for troubleshooting
-        import json
 
         manifest_path = hass.config.path(
             "custom_components", "loggamera", "manifest.json"
         )
         try:
-            with open(manifest_path, "r") as f:
-                manifest = json.load(f)
+            async with aiofiles.open(manifest_path, "r") as f:
+                content = await f.read()
+                manifest = json.loads(content)
                 version = manifest.get("version", "unknown")
                 _LOGGER.info(f"🔧 Loggamera Integration v{version} starting up")
         except Exception:
@@ -152,6 +154,7 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             "devices": [],
             "device_data": {},
             "scenarios": [],
+            "organizations": [],
         }
 
         _LOGGER.debug(
@@ -168,22 +171,30 @@ class LoggameraDataUpdateCoordinator(DataUpdateCoordinator):
             # Start with existing data - we'll update it
             updated_data = self.data.copy()
 
-            # Fetch organizations first if needed (typically not necessary)
-            if not self.api.organization_id:
-                _LOGGER.debug("No organization ID set, fetching organizations")
-                org_response = await self.hass.async_add_executor_job(
-                    self.api.get_organizations
+            # Always fetch organizations for organization sensors
+            _LOGGER.debug("Fetching organizations for organization sensors")
+            org_response = await self.hass.async_add_executor_job(
+                self.api.get_organizations
+            )
+
+            if (
+                "Data" in org_response
+                and "Organizations" in org_response["Data"]
+                and org_response["Data"]["Organizations"]
+            ):
+                updated_data["organizations"] = org_response["Data"]["Organizations"]
+                _LOGGER.debug(
+                    f"Found {len(updated_data['organizations'])} organizations"
                 )
 
-                if (
-                    "Data" in org_response
-                    and "Organizations" in org_response["Data"]
-                    and org_response["Data"]["Organizations"]
-                ):
+                # Set organization ID if not already set
+                if not self.api.organization_id:
                     self.api.organization_id = org_response["Data"]["Organizations"][0][
                         "Id"
                     ]
                     _LOGGER.info(f"Set organization ID to {self.api.organization_id}")
+            else:
+                updated_data["organizations"] = []
 
             # Fetch devices if we don't have them yet
             if not updated_data["devices"]:

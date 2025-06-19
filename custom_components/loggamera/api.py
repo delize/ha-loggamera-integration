@@ -241,6 +241,9 @@ class LoggameraAPI:
             primary_endpoint = API_ENDPOINT_COOLING_UNIT
         elif device_type == "HeatPump":
             primary_endpoint = API_ENDPOINT_HEAT_PUMP
+        elif device_type == "HeatMeter":
+            # HeatMeter has no dedicated endpoint - use RawData directly
+            primary_endpoint = None
 
         # If we have a primary endpoint, try it first
         if primary_endpoint:

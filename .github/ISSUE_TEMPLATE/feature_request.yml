@@ -1,0 +1,150 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for the Loggamera integration
+title: "[FEATURE] "
+labels: ["feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature! Please provide details below to help us understand your request.
+
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Describe the issue you're facing
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented
+      placeholder: "I would like..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device-type
+    attributes:
+      label: Device Type
+      description: Which device type would this feature affect?
+      options:
+        - PowerMeter
+        - RoomSensor
+        - WaterMeter
+        - HeatMeter
+        - HeatPump
+        - ChargingStation
+        - CoolingUnit
+        - Organization sensors
+        - All device types
+        - Integration core
+        - Other/Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - New sensor support
+        - New device type support
+        - Dashboard/UI improvement
+        - Configuration enhancement
+        - Performance improvement
+        - API enhancement
+        - Diagnostic tool
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered
+      placeholder: "I considered..."
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Integration Behavior
+      description: How does the integration currently handle this area?
+      placeholder: "Currently, the integration..."
+
+  - type: textarea
+    id: api-response-data
+    attributes:
+      label: Required API Response Data
+      description: |
+        **REQUIRED for new device/sensor requests**: Provide the complete API response data for your device/feature:
+
+        **For new device types:**
+        ```bash
+        python tools/loggamera_api_explorer.py YOUR_API_KEY RawData --device-id YOUR_DEVICE_ID
+        python tools/organization_mapper.py YOUR_API_KEY --format json
+        ```
+
+        **For new endpoints/features:**
+        ```bash
+        python tools/loggamera_api_explorer.py YOUR_API_KEY NEW_ENDPOINT --device-id YOUR_DEVICE_ID
+        ```
+
+        **Include the complete JSON response** - this is essential for implementation!
+        **Remove sensitive data (API keys, org IDs, specific device names)**
+      placeholder: Paste complete API response JSON here...
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: device-mapping-output
+    attributes:
+      label: Current Device Mapping (for new devices)
+      description: |
+        **For new device support requests**: Run the organization mapper to show current device status:
+        ```bash
+        python tools/organization_mapper.py YOUR_API_KEY --format markdown --verbose
+        ```
+        This helps us understand what's currently mapped vs. what's missing.
+      placeholder: Paste organization mapper output here...
+      render: shell
+
+  - type: textarea
+    id: sensor-analysis
+    attributes:
+      label: Sensor Analysis (for new sensors)
+      description: |
+        **For sensor-related requests**: Analyze what sensors are available but not mapped:
+        ```bash
+        python tools/validate_sensor_mappings.py
+        python tools/check_actual_coverage.py
+        ```
+        This shows coverage gaps and unmapped sensor opportunities.
+      placeholder: Paste sensor analysis output here...
+      render: shell
+
+  - type: textarea
+    id: api-documentation
+    attributes:
+      label: API Documentation/Evidence
+      description: |
+        If you have access to Loggamera API documentation, specifications, or official examples for this feature, please include:
+        - Links to documentation
+        - Screenshots of API docs
+        - Official API examples
+        - Device manuals mentioning API capabilities
+      placeholder: Links, screenshots, or documentation references...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, mockups, or examples
+      placeholder: "Additional information..."

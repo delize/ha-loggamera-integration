@@ -1,4 +1,5 @@
 """Tests for the Loggamera API client."""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
